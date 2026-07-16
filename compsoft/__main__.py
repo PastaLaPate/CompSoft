@@ -1,13 +1,9 @@
-from turtle import forward
 import random
 import math
-from typing import Tuple, cast
+from typing import cast
 from glm import vec3
 import pyglm.glm as glm
 
-from OpenGL.GL.APPLE.vertex_program_evaluators import (
-    glDisableVertexAttribAPPLE,
-)
 from OpenGL.GL import (
     GL_TRUE,
     glClear,
@@ -25,7 +21,6 @@ from OpenGL.GL import (
     GL_FALSE,
     glDrawArrays,
     GL_TRIANGLES,
-    glDisableVertexAttribArray,
     GLfloat,
     glCreateShader,
     GL_VERTEX_SHADER,
@@ -528,9 +523,6 @@ def main():
         glUseProgram(program)
         for object in objects:
             object.draw(cam, program)
-
-        glfw.swap_buffers(window)
-        glfw.poll_events()
 
         nb_frames += 1
         accumulated_time += dt
