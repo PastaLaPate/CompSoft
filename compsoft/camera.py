@@ -5,9 +5,7 @@ from pyglm.glm import vec3
 
 
 class Camera:
-    def __init__(
-        self, pos: vec3 | None = None, rot: vec3 | None = None
-    ) -> None:
+    def __init__(self, pos: vec3 | None = None, rot: vec3 | None = None) -> None:
         self._pos = pos or vec3(0, 0, 0)
         self._rot = rot or vec3(0, 0, 0)
         self._fov = 90  # in degrees

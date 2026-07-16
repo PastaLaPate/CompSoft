@@ -17,9 +17,7 @@ class CameraControls:
         self.speed = speed
         self.mouse_speed = mouse_speed
 
-        glfw.set_input_mode(
-            self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED
-        )
+        glfw.set_input_mode(self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED)
         self.last_x, self.last_y = glfw.get_cursor_pos(self.window.window)
         glfw.set_scroll_callback(self.window.window, self.scroll_callback)
 
@@ -29,9 +27,7 @@ class CameraControls:
         ) or self.window.key_pressed(glfw.KEY_RIGHT_CONTROL)
 
         if ctrl_pressed:
-            self.camera.fov = max(
-                10, min(120, self.camera.fov - int(y_offset) * 3)
-            )
+            self.camera.fov = max(10, min(120, self.camera.fov - int(y_offset) * 3))
 
             print(
                 f"\r\033[KCamera FOV: {round(self.camera.fov, 1)}°",

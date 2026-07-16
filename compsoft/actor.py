@@ -87,9 +87,7 @@ class Actor:
         for component in self.components:
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> T | None:
+    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -104,9 +102,7 @@ class Actor:
                 return comp
         return None
 
-    def get_components_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> list[T]:
+    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
         comps = []
         for comp in self.components:
             if isinstance(comp, component_cls):

@@ -152,9 +152,7 @@ class SimpleMeshComponent(RenderableComponent):
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         # Color Buffer
-        color_buffer_data = [
-            val for c in self.colors for val in (c.x, c.y, c.z)
-        ]
+        color_buffer_data = [val for c in self.colors for val in (c.x, c.y, c.z)]
         self.vbo_colors = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferData(
@@ -187,9 +185,7 @@ class SimpleMeshComponent(RenderableComponent):
         )
 
         # Update Colors
-        color_buffer_data = [
-            val for c in self.colors for val in (c.x, c.y, c.z)
-        ]
+        color_buffer_data = [val for c in self.colors for val in (c.x, c.y, c.z)]
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferSubData(
             GL_ARRAY_BUFFER,

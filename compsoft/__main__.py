@@ -1,16 +1,15 @@
-from compsoft.material import Material
-from compsoft.components.cube import SimpleCubeComponent
+from pathlib import Path
+
+import glfw
+from glm import vec3
+
 from compsoft.actor import Actor
-from compsoft.camera_controls import CameraControls
 from compsoft.camera import Camera
+from compsoft.camera_controls import CameraControls
+from compsoft.components.cube import SimpleCubeComponent
+from compsoft.material import Material
 from compsoft.scene import Scene
 from compsoft.window import Window
-import random
-import math
-from typing import cast
-from glm import vec3
-import glfw
-from pathlib import Path
 
 
 class COLORS:

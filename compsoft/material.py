@@ -26,6 +26,4 @@ class Material:
 
         matrix_loc = self.get_uniform_location("MVP")
         if matrix_loc != -1:
-            glUniformMatrix4fv(
-                matrix_loc, 1, GL_FALSE, glm.value_ptr(mvp_matrix)
-            )
+            glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm.value_ptr(mvp_matrix))
