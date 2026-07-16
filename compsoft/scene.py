@@ -11,13 +11,14 @@ class Scene:
         self.root_actors: list[Actor] = []
         self.registry: dict[uuid.UUID, Actor] = {}
 
-    def add_actor(self, actor: Actor, parent: Optional[Actor] = None):
+    def add_actor(self, actor: Actor, parent: Optional[Actor] = None) -> Actor:
         if parent:
             parent.add_child(actor)
         else:
             # Prevent duplicates if it was previously root
             if actor not in self.root_actors:
                 self.root_actors.append(actor)
+        return actor
 
     def remove_actor(self, actor: Actor):
         if actor in self.root_actors:

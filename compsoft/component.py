@@ -14,4 +14,13 @@ class Component:
 
 class RenderableComponent(ABC, Component):
     @abstractmethod
+    def load(self): ...
+
+    @abstractmethod
+    def unload(self): ...
+
+    @abstractmethod
+    def update(self): ...
+
+    @abstractmethod
     def draw(self, aspect_ratio: float, mvp: mat4): ...

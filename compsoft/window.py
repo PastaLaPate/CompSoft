@@ -1,4 +1,13 @@
-from OpenGL.GL import glClear, GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT
+from OpenGL.GL import (
+    glClear,
+    GL_COLOR_BUFFER_BIT,
+    GL_DEPTH_BUFFER_BIT,
+    GL_CULL_FACE,
+    GL_DEPTH_TEST,
+    GL_LESS,
+    glDepthFunc,
+    glEnable,
+)
 import glfw
 
 
@@ -9,7 +18,7 @@ class Window:
         self.__title = title
         self.__running = False
 
-        self.dt: int = 0
+        self.dt: float = 0
         self.last_time: int = 0
 
         glfw.init()
@@ -30,6 +39,10 @@ class Window:
         glfw.set_input_mode(
             window, glfw.STICKY_KEYS, 0x1
         )  # == GL_TRUE but avoids putting opengl code here.
+
+        glEnable(GL_CULL_FACE)
+        glEnable(GL_DEPTH_TEST)
+        glDepthFunc(GL_LESS)
 
     @property
     def running(self) -> bool:

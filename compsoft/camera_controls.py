@@ -48,7 +48,7 @@ class CameraControls:
             )
 
     def update(self, dt: float):
-        current_x, current_y = glfw.get_cursor_pos(self.window)
+        current_x, current_y = glfw.get_cursor_pos(self.window.window)
 
         dx = current_x - self.last_x
         dy = current_y - self.last_y
@@ -59,19 +59,27 @@ class CameraControls:
         if self.window.mmb_pressed():
             self.camera.pos += self.camera.right * (dx * self.mouse_speed)
             self.camera.pos -= self.camera.up * (dy * self.mouse_speed)
+            self.camera._dirty_matrix = True
         elif self.window.rmb_pressed() or (not self.window.mmb_pressed()):
             # Default behavior: Look around if RMB is held or no other mouse buttons are down
             self.camera.rot.y += dx * self.mouse_speed
             self.camera.rot.x -= dy * self.mouse_speed
             self.camera.rot.x = max(-89.0, min(89.0, self.camera.rot.x))
+            self.camera._dirty_matrix = True
 
         # Pos
 
+        changed = False
         if self.window.key_pressed(glfw.KEY_W):
             self.camera.pos += self.camera.forward * dt * self.speed
+            changed = True
         if self.window.key_pressed(glfw.KEY_S):
             self.camera.pos -= self.camera.forward * dt * self.speed
+            changed = True
         if self.window.key_pressed(glfw.KEY_D):
             self.camera.pos += self.camera.right * dt * self.speed
+            changed = True
         if self.window.key_pressed(glfw.KEY_A):
             self.camera.pos -= self.camera.right * dt * self.speed
+            changed = True
+        self.camera._dirty_matrix = changed

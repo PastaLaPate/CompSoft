@@ -14,7 +14,7 @@ class Camera:
         self._near_clipping_plane = 0.1
         self._far_clipping_plane = 300.0
 
-        self.cached_view_matrix = None
+        self._cached_view_matrix = None
         self._dirty_matrix = True
 
     @classmethod
