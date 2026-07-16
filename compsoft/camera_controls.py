@@ -1,6 +1,7 @@
 import glfw
-from compsoft.window import Window
+
 from compsoft.camera import Camera
+from compsoft.window import Window
 
 
 class CameraControls:
@@ -17,7 +18,9 @@ class CameraControls:
         self.speed = speed
         self.mouse_speed = mouse_speed
 
-        glfw.set_input_mode(self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+        glfw.set_input_mode(
+            self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED
+        )
         self.last_x, self.last_y = glfw.get_cursor_pos(self.window.window)
         glfw.set_scroll_callback(self.window.window, self.scroll_callback)
 
@@ -27,7 +30,9 @@ class CameraControls:
         ) or self.window.key_pressed(glfw.KEY_RIGHT_CONTROL)
 
         if ctrl_pressed:
-            self.camera.fov = max(10, min(120, self.camera.fov - int(y_offset) * 3))
+            self.camera.fov = max(
+                10, min(120, self.camera.fov - int(y_offset) * 3)
+            )
 
             print(
                 f"\r\033[KCamera FOV: {round(self.camera.fov, 1)}°",
@@ -52,30 +57,29 @@ class CameraControls:
         self.last_x = current_x
         self.last_y = current_y
 
+        dirty = False
+
         if self.window.mmb_pressed():
             self.camera.pos += self.camera.right * (dx * self.mouse_speed)
             self.camera.pos -= self.camera.up * (dy * self.mouse_speed)
-            self.camera._dirty_matrix = True
+            dirty = True
         elif self.window.rmb_pressed() or (not self.window.mmb_pressed()):
-            # Default behavior: Look around if RMB is held or no other mouse buttons are down
             self.camera.rot.y += dx * self.mouse_speed
             self.camera.rot.x -= dy * self.mouse_speed
             self.camera.rot.x = max(-89.0, min(89.0, self.camera.rot.x))
-            self.camera._dirty_matrix = True
+            dirty = True
 
-        # Pos
-
-        changed = False
         if self.window.key_pressed(glfw.KEY_W):
             self.camera.pos += self.camera.forward * dt * self.speed
-            changed = True
+            dirty = True
         if self.window.key_pressed(glfw.KEY_S):
             self.camera.pos -= self.camera.forward * dt * self.speed
-            changed = True
+            dirty = True
         if self.window.key_pressed(glfw.KEY_D):
             self.camera.pos += self.camera.right * dt * self.speed
-            changed = True
+            dirty = True
         if self.window.key_pressed(glfw.KEY_A):
             self.camera.pos -= self.camera.right * dt * self.speed
-            changed = True
-        self.camera._dirty_matrix = changed
+            dirty = True
+
+        self.camera._dirty_matrix = dirty
