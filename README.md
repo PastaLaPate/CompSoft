@@ -1,0 +1,1 @@
+hey, my stupid ass decided to write a whole fucking engine in python, what could go wrong ? (this was written 16/07/2026, i will regret it you will see)
