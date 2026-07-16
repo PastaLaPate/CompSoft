@@ -1,3 +1,5 @@
+from typing import cast, Optional
+import pyglm.glm as glm
 from compsoft.actor import Actor
 import uuid
 from compsoft.camera import Camera
@@ -6,13 +8,16 @@ from compsoft.camera import Camera
 class Scene:
     def __init__(self, camera: Camera) -> None:
         self.camera = camera
-        self.root_actors: list = []
+        self.root_actors: list[Actor] = []
         self.registry: dict[uuid.UUID, Actor] = {}
 
-    def add_actor(self, actor: Actor) -> None:
-        if actor.parent is None:
-            self.root_actors.append(actor)
-        actor.set_scene(self)
+    def add_actor(self, actor: Actor, parent: Optional[Actor] = None):
+        if parent:
+            parent.add_child(actor)
+        else:
+            # Prevent duplicates if it was previously root
+            if actor not in self.root_actors:
+                self.root_actors.append(actor)
 
     def remove_actor(self, actor: Actor):
         if actor in self.root_actors:
@@ -34,4 +39,10 @@ class Scene:
             print(f"Unregistered {actor.name} (ID: {actor.id})")
 
     def render(self, aspect_ratio: float):
-        pass
+        mvp: glm.mat4x4 = cast(
+            glm.mat4x4,
+            self.camera.get_projection_matrix(aspect_ratio)
+            * self.camera.get_view_matrix(),
+        )
+        for actor in self.root_actors:
+            actor.render(aspect_ratio, mvp)
