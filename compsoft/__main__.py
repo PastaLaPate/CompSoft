@@ -1,3 +1,5 @@
+from turtle import forward
+import random
 import math
 from typing import Tuple, cast
 from glm import vec3
@@ -41,6 +43,9 @@ from OpenGL.GL import (
     GL_DEPTH_TEST,
     glDepthFunc,
     GL_DEPTH_BUFFER_BIT,
+    GL_DYNAMIC_DRAW,
+    glBufferSubData,
+    GL_CULL_FACE,
 )
 import glfw
 from pathlib import Path
@@ -154,7 +159,7 @@ class Camera:
             0.0,  # Roll (Z) is kept at 0 to keep the camera level with the horizon
         )
 
-    def get_lookat_target(self) -> vec3:
+    def get_forward(self) -> vec3:
         pitch = glm.radians(self.rot.x)
         yaw = glm.radians(self.rot.y)
 
@@ -165,7 +170,18 @@ class Camera:
         forward.z = math.cos(pitch) * math.sin(yaw)
 
         forward = glm.normalize(forward)
-        return self.pos + forward
+        return forward
+
+    def get_right(self) -> vec3:
+        return glm.normalize(glm.cross(self.get_forward(), vec3(0, 1, 0)))
+
+    def get_up(self) -> glm.vec3:
+        """Returns the camera's local Up vector (perpendicular to both Forward and Right)."""
+        # Useful if you want a camera that can pitch up and down relative to its own tilt
+        return glm.normalize(glm.cross(self.get_right(), self.get_forward()))
+
+    def get_lookat_target(self) -> vec3:
+        return self.pos + self.get_forward()
 
     def get_view_matrix(self) -> glm.mat4x4:
         if self.v_matrix and not self.dirty_matrix:
@@ -184,10 +200,110 @@ class Camera:
         return p
 
 
+class Controls:
+    def __init__(
+        self, win, cam: Camera, speed: float = 5, mouse_speed: float = 0.05
+    ) -> None:
+        self.win = win
+        self.cam = cam
+        self.speed = speed
+        self.mouse_speed = mouse_speed
+        self.pan_speed = 0.05
+
+        glfw.set_input_mode(self.win, glfw.CURSOR, glfw.CURSOR_DISABLED)
+
+        self.last_x, self.last_y = glfw.get_cursor_pos(self.win)
+        glfw.set_scroll_callback(self.win, self.scroll_callback)
+
+    def scroll_callback(self, window, x_offset: float, y_offset: float):
+        ctrl_pressed = (
+            glfw.get_key(self.win, glfw.KEY_LEFT_CONTROL) == glfw.PRESS
+            or glfw.get_key(self.win, glfw.KEY_RIGHT_CONTROL) == glfw.PRESS
+        )
+
+        if ctrl_pressed:
+            self.cam.fov = max(10, min(120, self.cam.fov - int(y_offset) * 3))
+
+            print(
+                f"\r\033[KCamera FOV: {round(self.cam.fov, 1)}°",
+                end="",
+                flush=True,
+            )
+        else:
+            self.speed = max(0.5, min(50.0, self.speed + y_offset * 0.5))
+
+            print(
+                f"\r\033[KMovement Speed: {round(self.speed, 2)}",
+                end="",
+                flush=True,
+            )
+
+    def control_pass(self, dt: float):
+        # Rot
+        current_x, current_y = glfw.get_cursor_pos(self.win)
+
+        dx = current_x - self.last_x
+        dy = current_y - self.last_y
+
+        self.last_x = current_x
+        self.last_y = current_y
+
+        # Pan
+        rmb_pressed = (
+            glfw.get_mouse_button(self.win, glfw.MOUSE_BUTTON_RIGHT)
+            == glfw.PRESS
+        )
+        mmb_pressed = (
+            glfw.get_mouse_button(self.win, glfw.MOUSE_BUTTON_MIDDLE)
+            == glfw.PRESS
+        )
+
+        if mmb_pressed:
+            self.cam.pos += self.cam.get_right() * (dx * self.pan_speed)
+            self.cam.pos -= self.cam.get_up() * (dy * self.pan_speed)
+
+        elif rmb_pressed or (not mmb_pressed):
+            # Default behavior: Look around if RMB is held or no other mouse buttons are down
+            self.cam.rot.y += dx * self.mouse_speed
+            self.cam.rot.x -= dy * self.mouse_speed
+            self.cam.rot.x = max(-89.0, min(89.0, self.cam.rot.x))
+
+        # Pos
+
+        if glfw.get_key(self.win, glfw.KEY_W) == glfw.PRESS:
+            self.cam.pos += self.cam.get_forward() * dt * self.speed
+        if glfw.get_key(self.win, glfw.KEY_S) == glfw.PRESS:
+            self.cam.pos -= self.cam.get_forward() * dt * self.speed
+        if glfw.get_key(self.win, glfw.KEY_D) == glfw.PRESS:
+            self.cam.pos += self.cam.get_right() * dt * self.speed
+        if glfw.get_key(self.win, glfw.KEY_A) == glfw.PRESS:
+            self.cam.pos -= self.cam.get_right() * dt * self.speed
+
+
 class SimpleMesh:
-    def __init__(self, triangles: list[tuple[vec3, vec3, vec3]]) -> None:
+    def __init__(
+        self, triangles: list[tuple[vec3, vec3, vec3]], dynamic=False
+    ) -> None:
+        """Initialize a mesh of triangles.
+
+        Args:
+            triangles (list[tuple[vec3, vec3, vec3]]): List of a tuple of 3 vertices, all of the triangles.
+            dynamic (bool, optional): Will the triangles or colors be updated ? Defaults to False.
+        """
+
+        self.dynamic = dynamic
+
         self.triangles = triangles
         self.vertex_array = glGenVertexArrays(1)
+
+        self.colors: list[vec3] = [  # 1 color per vertex
+            vec3(
+                random.uniform(0, 1),
+                random.uniform(0, 1),
+                random.uniform(0, 1),
+            )
+            for i in range(len(triangles * 3))
+        ]
 
         self._position = vec3(0, 0, 0)
         self._scale = vec3(1, 1, 1)
@@ -227,18 +343,46 @@ class SimpleMesh:
         self._rotation = x
 
     def load(self):
+        """### Loads all of the meshes info into VRAM.
+        Note: If the colors for example are changed after loading it wont be taken into account. Needs to use update func.
+        """
         glBindVertexArray(self.vertex_array)
-        buffer_data = [
+
+        vertex_buffer_data = [
             x for t in self.triangles for c in t for x in [c.x, c.y, c.z]
         ]  # triple nested loop WCPGW
         self.vertex_buffer = glGenBuffers(1)
+
         glBindBuffer(GL_ARRAY_BUFFER, self.vertex_buffer)
         glBufferData(
             GL_ARRAY_BUFFER,
-            len(buffer_data) * 4,
-            (GLfloat * len(buffer_data))(*buffer_data),
-            GL_STATIC_DRAW,
+            len(vertex_buffer_data) * 4,
+            (GLfloat * len(vertex_buffer_data))(*vertex_buffer_data),
+            GL_STATIC_DRAW if not self.dynamic else GL_DYNAMIC_DRAW,
         )
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
+
+        color_buffer_data = [x for t in self.colors for x in [t.x, t.y, t.z]]
+        self.color_buffer = glGenBuffers(1)
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.color_buffer)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(color_buffer_data) * 4,
+            (GLfloat * len(color_buffer_data))(*color_buffer_data),
+            GL_STATIC_DRAW if not self.dynamic else GL_DYNAMIC_DRAW,
+        )
+        glEnableVertexAttribArray(1)
+        glVertexAttribPointer(
+            1,  # attribute. No particular reason for 1, but must match the layout in the shader.
+            3,  # size
+            GL_FLOAT,  # type
+            GL_FALSE,  # normalized?
+            0,  # stride
+            None,  # array buffer offset
+        )
+        glBindVertexArray(0)
 
     def get_transform_matrix(self) -> glm.mat4x4:
         if self.t_matrix and not self.dirty_matrix:
@@ -267,11 +411,39 @@ class SimpleMesh:
 
         glUniformMatrix4fv(matrix_id, 1, GL_FALSE, glm.value_ptr(mvp))
 
-        glEnableVertexAttribArray(0)
-        glBindBuffer(GL_ARRAY_BUFFER, self.vertex_buffer)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
+        glBindVertexArray(self.vertex_array)
         glDrawArrays(GL_TRIANGLES, 0, 3 * len(self.triangles))
-        glDisableVertexAttribArray(0)
+        glBindVertexArray(0)
+
+    def update_triangles(self, triangles: list[tuple[vec3, vec3, vec3]]):
+        self.triangles = triangles
+        vertex_buffer_data = [
+            x for t in self.triangles for c in t for x in [c.x, c.y, c.z]
+        ]  # triple nested loop WCPGW
+
+        data_array = (GLfloat * len(vertex_buffer_data))(*vertex_buffer_data)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertex_buffer)
+        glBufferSubData(
+            GL_ARRAY_BUFFER,
+            0,  # Start at 0, replace whole buffer
+            len(vertex_buffer_data) * 4,  # Whole buffer size in bytes
+            data_array,
+        )
+        glBindBuffer(GL_ARRAY_BUFFER, 0)  # Unbind
+
+    def update_colors(self, colors: list[vec3]):
+        self.colors = colors
+        color_buffer_data = [x for t in self.colors for x in [t.x, t.y, t.z]]
+
+        data_array = (GLfloat * len(color_buffer_data))(*color_buffer_data)
+        glBindBuffer(GL_ARRAY_BUFFER, self.color_buffer)
+        glBufferSubData(
+            GL_ARRAY_BUFFER,
+            0,  # Start at 0, replace whole buffer
+            len(color_buffer_data) * 4,  # Whole buffer size in bytes
+            data_array,
+        )
+        glBindBuffer(GL_ARRAY_BUFFER, 0)  # Unbind
 
 
 class SimpleCube(SimpleMesh):
@@ -315,6 +487,7 @@ def main():
 
     glfw.set_input_mode(window, glfw.STICKY_KEYS, GL_TRUE)
 
+    glEnable(GL_CULL_FACE)
     glEnable(GL_DEPTH_TEST)
     glDepthFunc(GL_LESS)
 
@@ -332,17 +505,37 @@ def main():
 
     for object in objects:
         object.load()
+
+    controls = Controls(window, cam)
+
+    last_time = glfw.get_time()
+    nb_frames = 0
+    accumulated_time = 0.0
+
     while (
         glfw.get_key(window, glfw.KEY_ESCAPE) != glfw.PRESS
         and glfw.window_should_close(window) == 0
     ):
+        current_time = glfw.get_time()
+        dt = current_time - last_time
+        last_time = current_time
+
         glClear(GL_COLOR_BUFFER_BIT)
         glClear(GL_DEPTH_BUFFER_BIT)
 
-        glUseProgram(program)
+        controls.control_pass(dt)
 
+        glUseProgram(program)
         for object in objects:
             object.draw(cam, program)
 
         glfw.swap_buffers(window)
         glfw.poll_events()
+
+        nb_frames += 1
+        accumulated_time += dt
+        if nb_frames > 10:
+            avg_ms = (accumulated_time / nb_frames) * 1000.0
+            print(f"\r\033[Ktook {round(avg_ms, 4)}ms", end="", flush=True)
+            nb_frames = 0
+            accumulated_time = 0.0
