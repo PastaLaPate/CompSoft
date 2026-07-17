@@ -5,10 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "glfw>=2.10.0",
+    "glfw>=2.10.1",
     "numpy>=2.5.1",
+    "pillow>=12.3.0",
     "pyglm>=2.8.3",
     "pyopengl>=3.1.10",
+    "trimesh>=4.12.2",
 ]
 
 [build-system]

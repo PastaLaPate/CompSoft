@@ -18,11 +18,18 @@ class CameraControls:
         self.speed = speed
         self.mouse_speed = mouse_speed
 
+        self.last_x, self.last_y = glfw.get_cursor_pos(self.window.window)
+        glfw.set_scroll_callback(self.window.window, self.scroll_callback)
+
+    def enable_cursor(self):
+        glfw.set_input_mode(
+            self.window.window, glfw.CURSOR, glfw.CURSOR_NORMAL
+        )
+
+    def disable_cursor(self):
         glfw.set_input_mode(
             self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED
         )
-        self.last_x, self.last_y = glfw.get_cursor_pos(self.window.window)
-        glfw.set_scroll_callback(self.window.window, self.scroll_callback)
 
     def scroll_callback(self, window, x_offset: float, y_offset: float):
         ctrl_pressed = self.window.key_pressed(
@@ -60,14 +67,18 @@ class CameraControls:
         dirty = False
 
         if self.window.mmb_pressed():
+            self.disable_cursor()
             self.camera.pos += self.camera.right * (dx * self.mouse_speed)
             self.camera.pos -= self.camera.up * (dy * self.mouse_speed)
             dirty = True
-        elif self.window.rmb_pressed() or (not self.window.mmb_pressed()):
+        elif self.window.lmb_pressed() and (not self.window.mmb_pressed()):
+            self.disable_cursor()
             self.camera.rot.y += dx * self.mouse_speed
             self.camera.rot.x -= dy * self.mouse_speed
             self.camera.rot.x = max(-89.0, min(89.0, self.camera.rot.x))
             dirty = True
+        else:
+            self.enable_cursor()
 
         if self.window.key_pressed(glfw.KEY_W):
             self.camera.pos += self.camera.forward * dt * self.speed

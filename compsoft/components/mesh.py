@@ -1,36 +1,40 @@
+from typing import cast
+
+import pyglm.glm as glm
+from glm import vec2
 from OpenGL.GL import (
-    glGenVertexArrays,
-    glBindVertexArray,
-    GL_DYNAMIC_DRAW,
-    GL_STATIC_DRAW,
-    glGenBuffers,
-    glBindBuffer,
     GL_ARRAY_BUFFER,
-    glBufferData,
-    GLfloat,
-    glEnableVertexAttribArray,
-    glVertexAttribPointer,
-    GL_FLOAT,
+    GL_DYNAMIC_DRAW,
     GL_FALSE,
-    glBufferSubData,
-    glDrawArrays,
+    GL_FLOAT,
+    GL_STATIC_DRAW,
     GL_TRIANGLES,
+    GLfloat,
+    glBindBuffer,
+    glBindVertexArray,
+    glBufferData,
+    glBufferSubData,
     glDeleteBuffers,
     glDeleteVertexArrays,
+    glDrawArrays,
+    glEnableVertexAttribArray,
+    glGenBuffers,
+    glGenVertexArrays,
+    glVertexAttribPointer,
 )
-import random
-from typing import cast
 from pyglm.glm import mat4, vec3
-import pyglm.glm as glm
 
 from compsoft.component import RenderableComponent
 from compsoft.material import Material
+
+"""TODO: Implement bitmask dirty states for each buffer"""
 
 
 class SimpleMeshComponent(RenderableComponent):
     def __init__(
         self,
         triangles: list[tuple[vec3, vec3, vec3]],
+        uvs: list[tuple[vec2, vec2, vec2]],
         material: Material,
         dynamic=False,
     ) -> None:
@@ -42,17 +46,14 @@ class SimpleMeshComponent(RenderableComponent):
             dynamic (bool, optional): Will the triangles or colors be updated? Defaults to False.
         """
         self._triangles = triangles
+        self._uvs = uvs
         self.dynamic = dynamic
         self._mat = material
+        self._mat.bind_properties()
 
-        # Generate random colors for each vertex (matching your original logic)
+        # White vertex color
         self.colors: list[vec3] = [
-            vec3(
-                random.uniform(0, 1),
-                random.uniform(0, 1),
-                random.uniform(0, 1),
-            )
-            for _ in range(len(triangles) * 3)
+            vec3(1, 1, 1) for _ in range(len(triangles) * 3)
         ]
 
         self._position = vec3(0, 0, 0)
@@ -66,6 +67,7 @@ class SimpleMeshComponent(RenderableComponent):
         self.vao = 0
         self.vbo_vertices = 0
         self.vbo_colors = 0
+        self.vbo_uvs = 0
 
     @property
     def triangles(self) -> list[tuple[vec3, vec3, vec3]]:
@@ -74,6 +76,14 @@ class SimpleMeshComponent(RenderableComponent):
     @triangles.setter
     def triangles(self, triangles: list[tuple[vec3, vec3, vec3]]):
         self._triangles = triangles
+
+    @property
+    def uvs(self) -> list[tuple[vec2, vec2, vec2]]:
+        return self._uvs
+
+    @uvs.setter
+    def uvs(self, uvs: list[tuple[vec2, vec2, vec2]]):
+        self._uvs = uvs
 
     @property
     def material(self) -> Material:
@@ -131,6 +141,13 @@ class SimpleMeshComponent(RenderableComponent):
 
     def load(self):
         """Loads all of the meshes info into VRAM."""
+        if len(self.triangles) != len(self.uvs) or (
+            len(self.triangles) * 3
+        ) != len(self.colors):
+            raise ValueError(
+                f"Mesh data mismatch! Triangles: {len(self.triangles)}, "
+                f"UVs: {len(self.uvs)}, Vertex Colors: {len(self.colors)}"
+            )
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
 
@@ -152,7 +169,9 @@ class SimpleMeshComponent(RenderableComponent):
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         # Color Buffer
-        color_buffer_data = [val for c in self.colors for val in (c.x, c.y, c.z)]
+        color_buffer_data = [
+            val for c in self.colors for val in (c.x, c.y, c.z)
+        ]
         self.vbo_colors = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferData(
@@ -163,6 +182,21 @@ class SimpleMeshComponent(RenderableComponent):
         )
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, None)
+
+        # UVs Buffer
+        uv_buffer_data = [
+            uv for t in self.uvs for vertex in t for uv in (vertex.x, vertex.y)
+        ]
+        self.vbo_uvs = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(uv_buffer_data) * 4,
+            (GLfloat * len(uv_buffer_data))(*uv_buffer_data),
+            usage,
+        )
+        glEnableVertexAttribArray(2)
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
 
         glBindVertexArray(0)
 
@@ -185,7 +219,9 @@ class SimpleMeshComponent(RenderableComponent):
         )
 
         # Update Colors
-        color_buffer_data = [val for c in self.colors for val in (c.x, c.y, c.z)]
+        color_buffer_data = [
+            val for c in self.colors for val in (c.x, c.y, c.z)
+        ]
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferSubData(
             GL_ARRAY_BUFFER,
@@ -193,6 +229,19 @@ class SimpleMeshComponent(RenderableComponent):
             len(color_buffer_data) * 4,
             (GLfloat * len(color_buffer_data))(*color_buffer_data),
         )
+
+        # Update UVs
+        uv_buffer_data = [
+            uv for t in self.uvs for vertex in t for uv in (vertex.x, vertex.y)
+        ]
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
+        glBufferSubData(
+            GL_ARRAY_BUFFER,
+            0,
+            len(uv_buffer_data) * 4,
+            (GLfloat * len(uv_buffer_data))(*uv_buffer_data),
+        )
+
         glBindBuffer(GL_ARRAY_BUFFER, 0)
 
     def draw(self, aspect_ratio: float, mvp: mat4):
@@ -202,7 +251,9 @@ class SimpleMeshComponent(RenderableComponent):
 
         final_mvp = cast(mat4, mvp * self.get_transform_matrix())
 
-        self._mat.use(final_mvp)
+        self._mat.use(
+            final_mvp, self.get_transform_matrix(), self.get_transform_matrix()
+        )
 
         # draw the geometry
         glBindVertexArray(self.vao)
@@ -215,9 +266,12 @@ class SimpleMeshComponent(RenderableComponent):
             glDeleteBuffers(1, [self.vbo_vertices])
         if self.vbo_colors:
             glDeleteBuffers(1, [self.vbo_colors])
+        if self.vbo_uvs:
+            glDeleteBuffers(1, [self.vbo_uvs])
         if self.vao:
             glDeleteVertexArrays(1, [self.vao])
 
         self.vbo_vertices = 0
         self.vbo_colors = 0
+        self.vbo_uvs = 0
         self.vao = 0

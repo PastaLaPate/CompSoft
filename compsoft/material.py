@@ -1,29 +1,39 @@
-from OpenGL.GL import (
-    glGetUniformLocation,
-    glUseProgram,
-    glUniformMatrix4fv,
-    GL_FALSE,
-)
 from pathlib import Path
-from compsoft.shaders import ShaderRegistry
-import pyglm.glm as glm
+
+from OpenGL.GL import (
+    GL_TEXTURE0,
+    GL_TEXTURE_2D,
+    glActiveTexture,
+    glBindTexture,
+    glUseProgram,
+)
+from pyglm.glm import mat4
+
+from compsoft.consts import ROOT
+from compsoft.shader import Shader
+from compsoft.textures import TextureRegistry
 
 
 class Material:
-    def __init__(self, vert_path: Path, frag_path: Path):
-        self.program_id = ShaderRegistry.get_program(vert_path, frag_path)
+    def __init__(self, albedo: Path) -> None:
+        self.shader = Shader(
+            ROOT / "shaders" / "shaded" / "vertex.glsl",
+            ROOT / "shaders" / "shaded" / "fragment.glsl",
+        )
 
-        self._uniform_locations: dict[str, int] = {}
+        self.albedo = TextureRegistry.get_texture(albedo) or -1
 
-    def get_uniform_location(self, name: str) -> int:
-        if name not in self._uniform_locations:
-            location = glGetUniformLocation(self.program_id, name)
-            self._uniform_locations[name] = location
-        return self._uniform_locations[name]
+    def bind_properties(self):
+        glUseProgram(self.shader.program_id)
 
-    def use(self, mvp_matrix: glm.mat4):
-        glUseProgram(self.program_id)
+        if self.albedo != -1:
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, self.albedo)
 
-        matrix_loc = self.get_uniform_location("MVP")
-        if matrix_loc != -1:
-            glUniformMatrix4fv(matrix_loc, 1, GL_FALSE, glm.value_ptr(mvp_matrix))
+            # Set sampler location
+            self.shader.set_uniform_i("albedo", 0)
+
+    def use(self, mvp_matrix: mat4, model_matrix: mat4, view_matrix: mat4):
+        self.shader.use()
+
+        self.shader.set_uniform_matrix("MVP", mvp_matrix)

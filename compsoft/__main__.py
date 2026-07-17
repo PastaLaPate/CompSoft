@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import glfw
 from glm import vec3
 
@@ -7,6 +5,8 @@ from compsoft.actor import Actor
 from compsoft.camera import Camera
 from compsoft.camera_controls import CameraControls
 from compsoft.components.cube import SimpleCubeComponent
+from compsoft.components.model_mesh import ModelMeshComponent
+from compsoft.consts import ROOT
 from compsoft.material import Material
 from compsoft.scene import Scene
 from compsoft.window import Window
@@ -21,9 +21,6 @@ class COLORS:
     BLACK = vec3(0, 0, 0)
 
 
-ROOT = Path(__file__).resolve().parent.parent
-
-
 def main():
     print("Welcome...")
     window = Window(800, 600, "CompSoft")
@@ -34,17 +31,27 @@ def main():
     actor = scene.add_actor(Actor())
     cube = actor.add_component(
         SimpleCubeComponent(
-            Material(
-                Path(ROOT / "shaders" / "vertex.glsl"),
-                Path(ROOT / "shaders" / "fragment.glsl"),
-            )
+            Material(ROOT / "textures" / "mc_dirt.png"),
         )
     )
     cube.load()
 
+    suzanne = scene.add_actor(Actor())
+    suzanne.position = vec3(10, 10, 10)
+    suzanne_mesh = actor.add_component(
+        ModelMeshComponent(
+            ROOT / "models" / "suzanne.obj",
+            Material(ROOT / "textures" / "mc_dirt.png"),
+        )
+    )
+    suzanne_mesh.load()
+
     controls = CameraControls(cam, window)
-    while not window.key_pressed(glfw.KEY_ESCAPE):
+    while (
+        not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
+    ):
         window.clear()
+        print(window.dt * 1000, end="\r")
         controls.update(window.dt)
         scene.render(window.aspect_ratio)
         window.swap_buffers()
