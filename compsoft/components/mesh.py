@@ -9,7 +9,6 @@ from OpenGL.GL import (
     GL_FLOAT,
     GL_STATIC_DRAW,
     GL_TRIANGLES,
-    GLfloat,
     glBindBuffer,
     glBindVertexArray,
     glBufferData,
@@ -263,39 +262,43 @@ class SimpleMeshComponent(RenderableComponent):
             return
 
         # Update Vertices
-        vertex_buffer_data = [
-            val for t in self._triangles for c in t for val in (c.x, c.y, c.z)
-        ]
+        vertex_buffer_data = np.array(
+            [[c.x, c.y, c.z] for t in self._triangles for c in t],
+            dtype=np.float32,
+        ).ravel()
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
         glBufferSubData(
-            GL_ARRAY_BUFFER,
-            0,
-            len(vertex_buffer_data) * 4,
-            (GLfloat * len(vertex_buffer_data))(*vertex_buffer_data),
+            GL_ARRAY_BUFFER, 0, vertex_buffer_data.nbytes, vertex_buffer_data
         )
 
         # Update Colors
-        color_buffer_data = [
-            val for c in self.colors for val in (c.x, c.y, c.z)
-        ]
+        color_buffer_data = np.array(
+            [[c.x, c.y, c.z] for c in self.colors],
+            dtype=np.float32,
+        ).ravel()
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferSubData(
-            GL_ARRAY_BUFFER,
-            0,
-            len(color_buffer_data) * 4,
-            (GLfloat * len(color_buffer_data))(*color_buffer_data),
+            GL_ARRAY_BUFFER, 0, color_buffer_data.nbytes, color_buffer_data
         )
 
         # Update UVs
-        uv_buffer_data = [
-            uv for t in self.uvs for vertex in t for uv in (vertex.x, vertex.y)
-        ]
+        uv_buffer_data = np.array(
+            [[vertex.x, vertex.y] for t in self.uvs for vertex in t],
+            dtype=np.float32,
+        ).ravel()
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
         glBufferSubData(
-            GL_ARRAY_BUFFER,
-            0,
-            len(uv_buffer_data) * 4,
-            (GLfloat * len(uv_buffer_data))(*uv_buffer_data),
+            GL_ARRAY_BUFFER, 0, uv_buffer_data.nbytes, uv_buffer_data
+        )
+
+        # Update Normals
+        normals_buffer_data = np.array(
+            [[n.x, n.y, n.z] for n in self._normals],
+            dtype=np.float32,
+        ).ravel()
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0, normals_buffer_data.nbytes, normals_buffer_data
         )
 
         glBindBuffer(GL_ARRAY_BUFFER, 0)
