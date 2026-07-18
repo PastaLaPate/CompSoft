@@ -1,5 +1,6 @@
 from typing import cast
 
+import numpy as np
 import pyglm.glm as glm
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
@@ -175,7 +176,6 @@ class SimpleMeshComponent(RenderableComponent):
 
     def load(self):
         """Loads all of the meshes info into VRAM."""
-        """TODO: List comprehension to numpy"""
         if len(self.triangles) != len(self.uvs) or (
             len(self.triangles) * 3
         ) != len(self.colors):
@@ -189,61 +189,65 @@ class SimpleMeshComponent(RenderableComponent):
         usage = GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
 
         # Vertex Buffer
-        vertex_buffer_data = [
-            val for t in self._triangles for c in t for val in (c.x, c.y, c.z)
-        ]
+        vertex_buffer_data = np.array(
+            [[c.x, c.y, c.z] for t in self._triangles for c in t],
+            dtype=np.float32,
+        ).ravel()
+
         self.vbo_vertices = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
+
         glBufferData(
             GL_ARRAY_BUFFER,
-            len(vertex_buffer_data) * 4,  # 4 bytes per float
-            (GLfloat * len(vertex_buffer_data))(*vertex_buffer_data),
+            vertex_buffer_data.nbytes,  # 4 bytes per float
+            vertex_buffer_data,
             usage,
         )
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         # Color Buffer
-        color_buffer_data = [
-            val for c in self.colors for val in (c.x, c.y, c.z)
-        ]
+        color_buffer_data = np.array(
+            [[c.x, c.y, c.z] for c in self.colors],
+            dtype=np.float32,
+        ).ravel()
         self.vbo_colors = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
         glBufferData(
             GL_ARRAY_BUFFER,
-            len(color_buffer_data) * 4,
-            (GLfloat * len(color_buffer_data))(*color_buffer_data),
+            color_buffer_data.nbytes,
+            color_buffer_data,
             usage,
         )
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         # UVs Buffer
-        uv_buffer_data = [
-            uv for t in self.uvs for vertex in t for uv in (vertex.x, vertex.y)
-        ]
+        uv_buffer_data = np.array(
+            [[vertex.x, vertex.y] for t in self.uvs for vertex in t],
+            dtype=np.float32,
+        ).ravel()
         self.vbo_uvs = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
         glBufferData(
             GL_ARRAY_BUFFER,
-            len(uv_buffer_data) * 4,
-            (GLfloat * len(uv_buffer_data))(*uv_buffer_data),
+            uv_buffer_data.nbytes,
+            uv_buffer_data,
             usage,
         )
         glEnableVertexAttribArray(2)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
 
-        normals_buffer_data: list[float] = [
-            val
-            for normal in self._normals
-            for val in (normal.x, normal.y, normal.z)
-        ]
+        normals_buffer_data = np.array(
+            [[n.x, n.y, n.z] for n in self._normals],
+            dtype=np.float32,
+        ).ravel()
         self.vbo_normals = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
         glBufferData(
             GL_ARRAY_BUFFER,
-            len(normals_buffer_data) * 4,
-            (GLfloat * len(normals_buffer_data))(*normals_buffer_data),
+            normals_buffer_data.nbytes,
+            normals_buffer_data,
             usage,
         )
         glEnableVertexAttribArray(3)

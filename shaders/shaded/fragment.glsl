@@ -28,6 +28,10 @@ in vec3 LightDirection_cameraspace;
 out vec4 color;
 
 void main() {
+
+  // TODO: Implement UBOs
+  float LightIntensity = 1;
+
   vec3 mixedColor = texture(albedo, UV).rgb * fragmentColor;
   vec3 MaterialAmbientColor = vec3(0.1) * mixedColor;
   vec3 MaterialSpecularColor = vec3(0.3);
@@ -48,5 +52,5 @@ void main() {
   vec3 specular = MaterialSpecularColor * LightColor * pow(cosAlpha, 32.0);
 
   // Combine with attenuation
-  color = vec4(clamp(MaterialAmbientColor + (diffuse + specular) * attenuation, 0, 1), 1.0);
+  color = vec4(clamp(MaterialAmbientColor + (diffuse + specular) * LightIntensity * attenuation, 0, 1), 1.0);
 }

@@ -51,8 +51,6 @@ def main():
     controls = CameraControls(cam, window)
     frame_times = deque(maxlen=60)
 
-    print("\n")  # Create initial line space
-
     while (
         not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
     ):
@@ -66,10 +64,8 @@ def main():
         avg_ms = sum(frame_times) / len(frame_times)
         fps = 1000.0 / avg_ms
 
-        # Go up and clear
-        print("\033[A")
-        print("\033[K")
-        print(f"{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="\r")
+        # Goofy huh
+        print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
 
         controls.update(window.dt)
         scene.render(window.aspect_ratio)
