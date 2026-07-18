@@ -2,6 +2,7 @@ from typing import cast
 
 import numpy as np
 import pyglm.glm as glm
+from OpenGL.constant import Constant
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
     GL_DYNAMIC_DRAW,
@@ -26,10 +27,15 @@ from pyglm.glm import mat4, vec2, vec3
 from compsoft.components.component import RenderableComponent
 from compsoft.material import Material
 
-"""TODO: Implement bitmask dirty states for each buffer"""
-
 
 class SimpleMeshComponent(RenderableComponent):
+    DIRTY_NONE = 0b0000
+    DIRTY_VERTICES = 0b0001
+    DIRTY_COLORS = 0b0010
+    DIRTY_UVS = 0b0100
+    DIRTY_NORMALS = 0b1000
+    DIRTY_ALL = 0b1111
+
     def __init__(
         self,
         triangles: list[tuple[vec3, vec3, vec3]],
@@ -45,21 +51,21 @@ class SimpleMeshComponent(RenderableComponent):
             dynamic (bool, optional): Will the triangles or colors be updated? Defaults to False.
         """
         self._triangles = triangles
-        self._uvs = uvs
-        self.dynamic = dynamic
-        self._mat = material
-        self._mat.bind_properties()
-        self._normals = []
-
-        # White vertex color
-        self.colors: list[vec3] = [
+        self._colors: list[vec3] = [  # Default white vertex color
             vec3(1, 1, 1) for _ in range(len(triangles) * 3)
         ]
+        self._uvs = uvs
+        self._normals = []
+
+        self._mat = material
+        self._mat.bind_properties()
+        self.dynamic = dynamic
 
         self._position = vec3(0, 0, 0)
         self._scale = vec3(1, 1, 1)
         self._rotation = vec3(0, 0, 0)
 
+        self._dirty_flags = self.DIRTY_NONE
         self.dirty_matrix = True
         self.t_matrix = None
 
@@ -70,6 +76,10 @@ class SimpleMeshComponent(RenderableComponent):
         self.vbo_uvs = 0
         self.vbo_normals = 0
 
+        self.usage: Constant = (
+            GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
+        )
+
         self.compute_normals()
 
     @property
@@ -79,7 +89,17 @@ class SimpleMeshComponent(RenderableComponent):
     @triangles.setter
     def triangles(self, triangles: list[tuple[vec3, vec3, vec3]]):
         self._triangles = triangles
+        self._dirty_flags |= self.DIRTY_VERTICES
         self.compute_normals()
+
+    @property
+    def colors(self) -> list[vec3]:
+        return self._colors
+
+    @colors.setter
+    def colors(self, colors: list[vec3]):
+        self._colors = colors
+        self._dirty_flags |= self.DIRTY_COLORS
 
     @property
     def uvs(self) -> list[tuple[vec2, vec2, vec2]]:
@@ -88,6 +108,7 @@ class SimpleMeshComponent(RenderableComponent):
     @uvs.setter
     def uvs(self, uvs: list[tuple[vec2, vec2, vec2]]):
         self._uvs = uvs
+        self._dirty_flags |= self.DIRTY_UVS
 
     @property
     def material(self) -> Material:
@@ -157,6 +178,8 @@ class SimpleMeshComponent(RenderableComponent):
 
                 self._normals.append(smoothed_normal)
 
+        self._dirty_flags |= self.DIRTY_NORMALS
+
     def get_transform_matrix(self) -> glm.mat4x4:
         if self.t_matrix and not self.dirty_matrix:
             return self.t_matrix
@@ -177,15 +200,13 @@ class SimpleMeshComponent(RenderableComponent):
         """Loads all of the meshes info into VRAM."""
         if len(self.triangles) != len(self.uvs) or (
             len(self.triangles) * 3
-        ) != len(self.colors):
+        ) != len(self._colors):
             raise ValueError(
                 f"Mesh data mismatch! Triangles: {len(self.triangles)}, "
-                f"UVs: {len(self.uvs)}, Vertex Colors: {len(self.colors)}"
+                f"UVs: {len(self.uvs)}, Vertex Colors: {len(self._colors)}"
             )
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
-
-        usage = GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
 
         # Vertex Buffer
         vertex_buffer_data = np.array(
@@ -200,14 +221,14 @@ class SimpleMeshComponent(RenderableComponent):
             GL_ARRAY_BUFFER,
             vertex_buffer_data.nbytes,  # 4 bytes per float
             vertex_buffer_data,
-            usage,
+            self.usage,
         )
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         # Color Buffer
         color_buffer_data = np.array(
-            [[c.x, c.y, c.z] for c in self.colors],
+            [[c.x, c.y, c.z] for c in self._colors],
             dtype=np.float32,
         ).ravel()
         self.vbo_colors = glGenBuffers(1)
@@ -216,7 +237,7 @@ class SimpleMeshComponent(RenderableComponent):
             GL_ARRAY_BUFFER,
             color_buffer_data.nbytes,
             color_buffer_data,
-            usage,
+            self.usage,
         )
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, None)
@@ -232,7 +253,7 @@ class SimpleMeshComponent(RenderableComponent):
             GL_ARRAY_BUFFER,
             uv_buffer_data.nbytes,
             uv_buffer_data,
-            usage,
+            self.usage,
         )
         glEnableVertexAttribArray(2)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
@@ -247,7 +268,7 @@ class SimpleMeshComponent(RenderableComponent):
             GL_ARRAY_BUFFER,
             normals_buffer_data.nbytes,
             normals_buffer_data,
-            usage,
+            self.usage,
         )
         glEnableVertexAttribArray(3)
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, None)
@@ -256,52 +277,78 @@ class SimpleMeshComponent(RenderableComponent):
 
     def update(self):
         """Updates VRAM with new triangle or color data."""
-        """TODO: Buffer orphan"""
         if not self.dynamic:
-            print("Warning: Attempted to update a static mesh.")
+            print(
+                "Warning: Attempted to update a static mesh. This can cause significant performance drop if done too frequently."
+            )
+        if self._dirty_flags == self.DIRTY_NONE:
             return
 
-        # Update Vertices
-        vertex_buffer_data = np.array(
-            [[c.x, c.y, c.z] for t in self._triangles for c in t],
-            dtype=np.float32,
-        ).ravel()
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
-        glBufferSubData(
-            GL_ARRAY_BUFFER, 0, vertex_buffer_data.nbytes, vertex_buffer_data
-        )
+        if self._dirty_flags & self.DIRTY_VERTICES:
+            vertex_buffer_data = np.array(
+                [[c.x, c.y, c.z] for t in self._triangles for c in t],
+                dtype=np.float32,
+            ).ravel()
+            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
+            # Orphanage
+            glBufferData(
+                GL_ARRAY_BUFFER, vertex_buffer_data.nbytes, None, self.usage
+            )
+            glBufferSubData(
+                GL_ARRAY_BUFFER,
+                0,
+                vertex_buffer_data.nbytes,
+                vertex_buffer_data,
+            )
 
-        # Update Colors
-        color_buffer_data = np.array(
-            [[c.x, c.y, c.z] for c in self.colors],
-            dtype=np.float32,
-        ).ravel()
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
-        glBufferSubData(
-            GL_ARRAY_BUFFER, 0, color_buffer_data.nbytes, color_buffer_data
-        )
+        if self._dirty_flags & self.DIRTY_COLORS:
+            color_buffer_data = np.array(
+                [[c.x, c.y, c.z] for c in self._colors],
+                dtype=np.float32,
+            ).ravel()
+            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
+            # Orphanage
+            glBufferData(
+                GL_ARRAY_BUFFER, color_buffer_data.nbytes, None, self.usage
+            )
+            glBufferSubData(
+                GL_ARRAY_BUFFER, 0, color_buffer_data.nbytes, color_buffer_data
+            )
 
-        # Update UVs
-        uv_buffer_data = np.array(
-            [[vertex.x, vertex.y] for t in self.uvs for vertex in t],
-            dtype=np.float32,
-        ).ravel()
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
-        glBufferSubData(
-            GL_ARRAY_BUFFER, 0, uv_buffer_data.nbytes, uv_buffer_data
-        )
+        if self._dirty_flags & self.DIRTY_UVS:
+            uv_buffer_data = np.array(
+                [[vertex.x, vertex.y] for t in self.uvs for vertex in t],
+                dtype=np.float32,
+            ).ravel()
+            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
+            # Orphanage
+            glBufferData(
+                GL_ARRAY_BUFFER, uv_buffer_data.nbytes, None, self.usage
+            )
+            glBufferSubData(
+                GL_ARRAY_BUFFER, 0, uv_buffer_data.nbytes, uv_buffer_data
+            )
 
         # Update Normals
-        normals_buffer_data = np.array(
-            [[n.x, n.y, n.z] for n in self._normals],
-            dtype=np.float32,
-        ).ravel()
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
-        glBufferSubData(
-            GL_ARRAY_BUFFER, 0, normals_buffer_data.nbytes, normals_buffer_data
-        )
+        if self._dirty_flags & self.DIRTY_NORMALS:
+            normals_buffer_data = np.array(
+                [[n.x, n.y, n.z] for n in self._normals],
+                dtype=np.float32,
+            ).ravel()
+            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
+            # Orphanage
+            glBufferData(
+                GL_ARRAY_BUFFER, normals_buffer_data.nbytes, None, self.usage
+            )
+            glBufferSubData(
+                GL_ARRAY_BUFFER,
+                0,
+                normals_buffer_data.nbytes,
+                normals_buffer_data,
+            )
 
         glBindBuffer(GL_ARRAY_BUFFER, 0)
+        self._dirty_flags = self.DIRTY_NONE
 
     def draw(self, aspect_ratio: float, mvp: mat4):
         """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
