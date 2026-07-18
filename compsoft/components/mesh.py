@@ -1,7 +1,6 @@
 from typing import cast
 
 import pyglm.glm as glm
-from glm import vec2
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
     GL_DYNAMIC_DRAW,
@@ -22,9 +21,9 @@ from OpenGL.GL import (
     glGenVertexArrays,
     glVertexAttribPointer,
 )
-from pyglm.glm import mat4, vec3
+from pyglm.glm import mat4, vec2, vec3
 
-from compsoft.component import RenderableComponent
+from compsoft.components.component import RenderableComponent
 from compsoft.material import Material
 
 """TODO: Implement bitmask dirty states for each buffer"""
@@ -50,6 +49,7 @@ class SimpleMeshComponent(RenderableComponent):
         self.dynamic = dynamic
         self._mat = material
         self._mat.bind_properties()
+        self._normals = []
 
         # White vertex color
         self.colors: list[vec3] = [
@@ -68,6 +68,9 @@ class SimpleMeshComponent(RenderableComponent):
         self.vbo_vertices = 0
         self.vbo_colors = 0
         self.vbo_uvs = 0
+        self.vbo_normals = 0
+
+        self.compute_normals()
 
     @property
     def triangles(self) -> list[tuple[vec3, vec3, vec3]]:
@@ -76,6 +79,7 @@ class SimpleMeshComponent(RenderableComponent):
     @triangles.setter
     def triangles(self, triangles: list[tuple[vec3, vec3, vec3]]):
         self._triangles = triangles
+        self.compute_normals()
 
     @property
     def uvs(self) -> list[tuple[vec2, vec2, vec2]]:
@@ -123,6 +127,36 @@ class SimpleMeshComponent(RenderableComponent):
             self.dirty_matrix = True
         self._rotation = x
 
+    def compute_normals(self):
+        # For each triangle, calculate its normal, for each vertex, accumulate it in a map, after all triangles, normalize
+
+        vertex_normal_map = {}
+        for triangle in self.triangles:
+            v1, v2, v3 = triangle
+            edge_1 = v2 - v1
+            edge_2 = v3 - v1
+            face_normal = glm.cross(edge_1, edge_2)
+            for v in (v1, v2, v3):
+                key = (v.x, v.y, v.z)
+                if key not in vertex_normal_map:
+                    vertex_normal_map[key] = glm.vec3(0.0)
+                vertex_normal_map[key] += face_normal
+
+        self._normals = []
+        for triangle in self._triangles:
+            for v in triangle:
+                key = (v.x, v.y, v.z)
+                accumulated_normal = vertex_normal_map[key]
+
+                if glm.length(accumulated_normal) > 0.0001:
+                    smoothed_normal = glm.normalize(accumulated_normal)
+                else:
+                    smoothed_normal = glm.vec3(
+                        0.0, 1.0, 0.0
+                    )  # Fallback up-vector
+
+                self._normals.append(smoothed_normal)
+
     def get_transform_matrix(self) -> glm.mat4x4:
         if self.t_matrix and not self.dirty_matrix:
             return self.t_matrix
@@ -141,6 +175,7 @@ class SimpleMeshComponent(RenderableComponent):
 
     def load(self):
         """Loads all of the meshes info into VRAM."""
+        """TODO: List comprehension to numpy"""
         if len(self.triangles) != len(self.uvs) or (
             len(self.triangles) * 3
         ) != len(self.colors):
@@ -198,10 +233,27 @@ class SimpleMeshComponent(RenderableComponent):
         glEnableVertexAttribArray(2)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
 
+        normals_buffer_data: list[float] = [
+            val
+            for normal in self._normals
+            for val in (normal.x, normal.y, normal.z)
+        ]
+        self.vbo_normals = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(normals_buffer_data) * 4,
+            (GLfloat * len(normals_buffer_data))(*normals_buffer_data),
+            usage,
+        )
+        glEnableVertexAttribArray(3)
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, None)
+
         glBindVertexArray(0)
 
     def update(self):
         """Updates VRAM with new triangle or color data."""
+        """TODO: Buffer orphan"""
         if not self.dynamic:
             print("Warning: Attempted to update a static mesh.")
             return
@@ -245,14 +297,25 @@ class SimpleMeshComponent(RenderableComponent):
         glBindBuffer(GL_ARRAY_BUFFER, 0)
 
     def draw(self, aspect_ratio: float, mvp: mat4):
-        """Draws the mesh using its attached Material."""
-        if self.vao == 0:
+        """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
+        if self.vao == 0 or not self.parent or not self.parent.scene:
             return  # Prevent drawing before load() is called
 
         final_mvp = cast(mat4, mvp * self.get_transform_matrix())
+        normal_matrix = cast(
+            mat4,
+            glm.mat4(
+                glm.transpose(
+                    glm.inverse(glm.mat3(self.get_transform_matrix()))
+                )
+            ),
+        )
 
         self._mat.use(
-            final_mvp, self.get_transform_matrix(), self.get_transform_matrix()
+            final_mvp,
+            self.get_transform_matrix(),
+            self.parent.scene.camera.get_view_matrix(),
+            normal_matrix,
         )
 
         # draw the geometry

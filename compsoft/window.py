@@ -39,6 +39,7 @@ class Window:
         glfw.set_input_mode(
             window, glfw.STICKY_KEYS, 0x1
         )  # == GL_TRUE but avoids putting opengl code here.
+        glfw.swap_interval(0)
 
         glEnable(GL_CULL_FACE)
         glEnable(GL_DEPTH_TEST)

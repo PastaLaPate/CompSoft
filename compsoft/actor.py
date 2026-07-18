@@ -1,10 +1,12 @@
 from __future__ import annotations
-from pyglm.glm import vec3
-from pyglm import glm
-from uuid import UUID
-from typing import TYPE_CHECKING, cast
 
-from compsoft.component import Component, RenderableComponent
+from typing import TYPE_CHECKING, cast
+from uuid import UUID
+
+from pyglm import glm
+from pyglm.glm import vec3
+
+from compsoft.components.component import Component, RenderableComponent
 
 if TYPE_CHECKING:
     from compsoft.scene import Scene
@@ -59,6 +61,8 @@ class Actor:
 
         # Orphan from old scene
         if self.scene is not None and scene is None:
+            for comp in self.components:
+                comp.on_exit_scene()
             self.scene.unregister_actor(self)
 
         self.scene = scene
@@ -66,6 +70,8 @@ class Actor:
         # Register on the new scene
         if self.scene is not None:
             self.scene.register_actor(self)
+            for comp in self.components:
+                comp.on_enter_scene(self.scene)
 
         # Do same for children
         for child in self.children:
@@ -76,18 +82,25 @@ class Actor:
     def add_component[T: Component](self, component: T) -> T:
         self.components.append(component)
         component.parent = self
+        if self.scene is not None:
+            component.on_enter_scene(self.scene)
         return component
 
     def remove_component(self, component: Component):
         component.parent = None
         if component in self.components:
+            if self.scene is not None:
+                component.on_exit_scene()
+            component.parent = None
             self.components.remove(component)
 
     def clear_components(self):
         for component in self.components:
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
+    def get_component_by_type[T: Component](
+        self, component_cls: type[T]
+    ) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -102,7 +115,9 @@ class Actor:
                 return comp
         return None
 
-    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
+    def get_components_by_type[T: Component](
+        self, component_cls: type[T]
+    ) -> list[T]:
         comps = []
         for comp in self.components:
             if isinstance(comp, component_cls):

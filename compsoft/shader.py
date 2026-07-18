@@ -6,9 +6,11 @@ from OpenGL.GL import (
     glGetUniformLocation,
     glUniform1f,
     glUniform1i,
+    glUniform3f,
     glUniformMatrix4fv,
     glUseProgram,
 )
+from pyglm.glm import vec3
 
 from compsoft.shaders import ShaderRegistry
 
@@ -39,6 +41,11 @@ class Shader:
         loc = self.get_uniform_location(name)
         if loc != -1:
             glUniform1i(loc, val)
+
+    def set_uniform_vec3(self, name: str, val: vec3) -> None:
+        loc = self.get_uniform_location(name)
+        if loc != -1:
+            glUniform3f(loc, val.x, val.y, val.z)
 
     def use(self):
         glUseProgram(self.program_id)

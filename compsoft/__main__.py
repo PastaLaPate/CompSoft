@@ -1,3 +1,5 @@
+from collections import deque
+
 import glfw
 from glm import vec3
 
@@ -47,11 +49,28 @@ def main():
     suzanne_mesh.load()
 
     controls = CameraControls(cam, window)
+    frame_times = deque(maxlen=60)
+
+    print("\n")  # Create initial line space
+
     while (
         not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
     ):
         window.clear()
-        print(window.dt * 1000, end="\r")
+
+        # Track time in ms
+        dt_ms = window.dt * 1000
+        frame_times.append(dt_ms)
+
+        # Calculate metrics
+        avg_ms = sum(frame_times) / len(frame_times)
+        fps = 1000.0 / avg_ms
+
+        # Go up and clear
+        print("\033[A")
+        print("\033[K")
+        print(f"{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="\r")
+
         controls.update(window.dt)
         scene.render(window.aspect_ratio)
         window.swap_buffers()
