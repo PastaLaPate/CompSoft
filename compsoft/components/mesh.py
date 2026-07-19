@@ -350,26 +350,33 @@ class SimpleMeshComponent(RenderableComponent):
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         self._dirty_flags = self.DIRTY_NONE
 
-    def draw(self, aspect_ratio: float, mvp: mat4):
+    def draw(self, aspect_ratio: float, world_model_matrix: mat4):
         """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
         if self.vao == 0 or not self.parent or not self.parent.scene:
             return  # Prevent drawing before load() is called
 
-        final_mvp = cast(mat4, mvp * self.get_transform_matrix())
+        world_model_matrix = cast(
+            mat4, world_model_matrix * self.get_transform_matrix()
+        )
         normal_matrix = cast(
             mat4,
-            glm.mat4(
-                glm.transpose(
-                    glm.inverse(glm.mat3(self.get_transform_matrix()))
-                )
-            ),
+            glm.mat4(glm.transpose(glm.inverse(glm.mat3(world_model_matrix)))),
+        )
+
+        P = self.parent.scene.camera.get_projection_matrix(aspect_ratio)
+        V = self.parent.scene.camera.get_view_matrix()
+
+        final_mvp = cast(
+            mat4,
+            P * V * world_model_matrix,
         )
 
         self._mat.use(
             final_mvp,
-            self.get_transform_matrix(),
-            self.parent.scene.camera.get_view_matrix(),
+            world_model_matrix,
+            V,
             normal_matrix,
+            self.parent.scene.camera.pos,
         )
 
         # draw the geometry

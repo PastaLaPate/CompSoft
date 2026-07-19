@@ -173,8 +173,10 @@ class Actor:
         return m
 
     def render(self, aspect_ratio: float, parent_matrix: glm.mat4):
-        mvp = cast(glm.mat4, parent_matrix * self.compute_transform_matrix())
+        world_model_matrix = cast(
+            glm.mat4, parent_matrix * self.compute_transform_matrix()
+        )
         for r_comp in self.get_components_by_type(RenderableComponent):
-            r_comp.draw(aspect_ratio, mvp)
+            r_comp.draw(aspect_ratio, world_model_matrix)
         for child in self.children:
-            child.render(aspect_ratio, mvp)
+            child.render(aspect_ratio, world_model_matrix)

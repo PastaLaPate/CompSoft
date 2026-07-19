@@ -1,7 +1,7 @@
 import uuid
-from typing import Optional, cast
+from typing import Optional
 
-import pyglm.glm as glm
+from glm import mat4
 
 from compsoft.actor import Actor
 from compsoft.camera import Camera
@@ -57,10 +57,5 @@ class Scene:
         return [light.get_data() for light in self.active_lights]
 
     def render(self, aspect_ratio: float):
-        mvp: glm.mat4x4 = cast(
-            glm.mat4x4,
-            self.camera.get_projection_matrix(aspect_ratio)
-            * self.camera.get_view_matrix(),
-        )
         for actor in self.root_actors:
-            actor.render(aspect_ratio, mvp)
+            actor.render(aspect_ratio, mat4())  # pass identity

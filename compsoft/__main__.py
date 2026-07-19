@@ -1,3 +1,4 @@
+import math
 from collections import deque
 
 import glfw
@@ -30,26 +31,27 @@ def main():
     cam.look_at(vec3(0, 0, 0))
     scene = Scene(cam)
 
+    mat = Material(ROOT / "textures" / "mc_dirt.png")
+
     actor = scene.add_actor(Actor())
-    cube = actor.add_component(
-        SimpleCubeComponent(
-            Material(ROOT / "textures" / "mc_dirt.png"),
-        )
-    )
+    cube = actor.add_component(SimpleCubeComponent(mat))
     cube.load()
+    cube.scale = vec3(100, 1, 100)
 
     suzanne = scene.add_actor(Actor())
     suzanne.position = vec3(10, 10, 10)
-    suzanne_mesh = actor.add_component(
-        ModelMeshComponent(
-            ROOT / "models" / "suzanne.obj",
-            Material(ROOT / "textures" / "mc_dirt.png"),
-        )
+    suzanne_mesh = suzanne.add_component(
+        ModelMeshComponent(ROOT / "models" / "suzanne.obj", mat)
     )
     suzanne_mesh.load()
 
+    light_actor = scene.add_actor(Actor())
+    light_cube = light_actor.add_component(SimpleCubeComponent(mat))
+    light_cube.load()
+
     controls = CameraControls(cam, window)
     frame_times = deque(maxlen=60)
+    t = 0
 
     while (
         not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
@@ -68,6 +70,12 @@ def main():
         print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
 
         controls.update(window.dt)
+
+        t += window.dt * 100
+        mat.light_pos = vec3(
+            math.cos(math.radians(t)) * 10, 10, math.sin(math.radians(t)) * 10
+        )
+        light_actor.position = mat.light_pos
         scene.render(window.aspect_ratio)
         window.swap_buffers()
         window.poll_events()

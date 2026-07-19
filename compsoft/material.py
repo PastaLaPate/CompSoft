@@ -20,6 +20,7 @@ class Material:
             ROOT / "shaders" / "shaded" / "vertex.glsl",
             ROOT / "shaders" / "shaded" / "fragment.glsl",
         )
+        self.light_pos = vec3(10, 10, 10)
 
         self.albedo = TextureRegistry.get_texture(albedo) or -1
 
@@ -39,6 +40,7 @@ class Material:
         model_matrix: mat4,
         view_matrix: mat4,
         normal_matrix: mat4,
+        cam_pos: vec3,
     ):
         self.shader.use()
 
@@ -47,6 +49,7 @@ class Material:
         self.shader.set_uniform_matrix("V", view_matrix)
         self.shader.set_uniform_matrix("NormalMatrix", normal_matrix)
         self.shader.set_uniform_vec3(
-            "LightPosition_worldspace", vec3(10, 10, 10)
+            "LightPosition_worldspace", self.light_pos
         )
         self.shader.set_uniform_vec3("LightColor", vec3(1, 1, 1))
+        self.shader.set_uniform_vec3("cameraPosition_worldspace", cam_pos)
