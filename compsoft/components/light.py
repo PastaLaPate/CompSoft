@@ -4,6 +4,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pyglm.glm as glm
 from pyglm.glm import vec3, vec4
 
 from compsoft.components.component import Component
@@ -155,10 +156,25 @@ class DirectionalLight(LightComponent):
         self.position = position
 
     def get_data(self) -> LightData:
+        pos = self.position
+        rotation_quat = glm.quat(glm.radians(self.direction))
+        local_forward = rotation_quat * glm.vec3(
+            0.0, 0.0, -1.0
+        )  # multiply by standard Z- forward
+        if self.parent:
+            wrld_matrix = self.parent.get_world_matrix()
+            pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
+            local_forward = vec3(
+                wrld_matrix
+                * glm.vec4(
+                    local_forward.x, local_forward.y, local_forward.z, 0.0
+                )
+            )
+
         return LightData(
             LightType.DIRECTIONAL,
-            self.position,
-            self.direction,
+            pos,
+            vec3(local_forward),
             self.color,
             self.intensity,
             0,
