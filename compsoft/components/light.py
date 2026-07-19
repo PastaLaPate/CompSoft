@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
+import numpy as np
 from pyglm.glm import vec3
 
 from compsoft.components.component import Component
@@ -20,6 +21,49 @@ class LightType(IntEnum):
 class LightData:
     """Matches shaders/shaded/fragment.glsl Light struct"""
 
+    LIGHT_DTYPE = np.dtype(
+        [
+            ("type", np.int32),
+            (
+                "_pad0",
+                np.int32,
+                3,
+            ),  # 12 bytes of padding to push 'position' to byte 16
+            ("position", np.float32, 3),  # 12 bytes
+            (
+                "_pad1",
+                np.float32,
+                1,
+            ),  # 4 bytes of padding to push 'direction' to byte 32
+            ("direction", np.float32, 3),  # 12 bytes
+            (
+                "_pad2",
+                np.float32,
+                1,
+            ),  # 4 bytes of padding to push 'color' to byte 48
+            ("color", np.float32, 3),  # 12 bytes
+            ("intensity", np.float32),  # 4 bytes
+            ("cutoff", np.float32),  # 4 bytes
+            (
+                "_pad3",
+                np.float32,
+                2,
+            ),  # 8 bytes of trailing padding to round out to 80 bytes total
+        ]
+    )
+
+    BLOCK_DTYPE = np.dtype(
+        [
+            ("u_lights", LIGHT_DTYPE, 8),
+            ("u_active_light_count", np.int32),
+            (
+                "_pad_block",
+                np.int32,
+                3,
+            ),  # Pad the final int to a clean 16-byte boundary
+        ]
+    )
+
     def __init__(
         self,
         light_type: LightType,
@@ -35,6 +79,16 @@ class LightData:
         self.color = color
         self.intensity = intensity
         self.cutoff = cutoff  # For Spotlights (cosine of angle)
+
+    def to_dtype(self):
+        data = np.zeros(1, dtype=self.LIGHT_DTYPE)
+        data["type"] = int(self.type)
+        data["position"] = self.position
+        data["direction"] = self.direction
+        data["color"] = self.color
+        data["intensity"] = self.intensity
+        data["cutoff"] = self.cutoff
+        return data
 
 
 class LightComponent(ABC, Component):

@@ -5,6 +5,8 @@ from OpenGL.GL import (
     GL_TEXTURE_2D,
     glActiveTexture,
     glBindTexture,
+    glGetUniformBlockIndex,
+    glUniformBlockBinding,
     glUseProgram,
 )
 from pyglm.glm import mat4, vec3
@@ -26,6 +28,11 @@ class Material:
 
     def bind_properties(self):
         glUseProgram(self.shader.program_id)
+
+        block_index = glGetUniformBlockIndex(
+            self.shader.program_id, "LightingBlock"
+        )
+        glUniformBlockBinding(self.shader.program_id, block_index, 0)
 
         if self.albedo != -1:
             glActiveTexture(GL_TEXTURE0)
