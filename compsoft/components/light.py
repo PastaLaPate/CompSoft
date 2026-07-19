@@ -174,7 +174,7 @@ class DirectionalLight(LightComponent):
         return LightData(
             LightType.DIRECTIONAL,
             pos,
-            vec3(local_forward),
+            glm.normalize(vec3(local_forward)),
             self.color,
             self.intensity,
             0,
