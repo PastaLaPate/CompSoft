@@ -102,5 +102,6 @@ class Scene:
         return [light.get_data() for light in self.active_lights]
 
     def render(self, aspect_ratio: float):
+        self.upload_light_ubo(self.get_lights())
         for actor in self.root_actors:
             actor.render(aspect_ratio, mat4())  # pass identity

@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 import numpy as np
-from pyglm.glm import vec3
+from pyglm.glm import vec3, vec4
 
 from compsoft.components.component import Component
 
@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 
 class LightType(IntEnum):
-    DIRECTIONAL = 0
-    POINT = 1
+    POINT = 0
+    DIRECTIONAL = 1
     SPOT = 2
 
 
@@ -41,14 +41,14 @@ class LightData:
                 np.float32,
                 1,
             ),  # 4 bytes of padding to push 'color' to byte 48
-            ("color", np.float32, 3),  # 12 bytes
-            ("intensity", np.float32),  # 4 bytes
-            ("cutoff", np.float32),  # 4 bytes
+            ("color", np.float32, 3),  # 12 bytes, offset = 60 bytes
+            ("intensity", np.float32),  # 4 bytes, offset = 64 bytes
+            ("cutoff", np.float32),  # 4 bytes, offset = 68 bytes
             (
                 "_pad3",
                 np.float32,
-                2,
-            ),  # 8 bytes of trailing padding to round out to 80 bytes total
+                3,
+            ),  # 12 bytes of trailing padding to round out to 80 bytes total
         ]
     )
 
@@ -118,9 +118,13 @@ class PointLight(LightComponent):
         self.position = position
 
     def get_data(self) -> LightData:
+        pos = self.position
+        if self.parent:
+            wrld_matrix = self.parent.get_world_matrix()
+            pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
         return LightData(
             LightType.POINT,
-            self.position,
+            pos,
             vec3(0, 0, 0),
             self.color,
             self.intensity,

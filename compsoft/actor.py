@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from pyglm import glm
-from pyglm.glm import vec3
+from pyglm.glm import mat4, vec3
 
 from compsoft.components.component import Component, RenderableComponent
 
@@ -171,6 +171,15 @@ class Actor:
         self.t_matrix = m
         self.dirty_matrix = False
         return m
+
+    # Walk up tree, shouldnt be used during the render itself as it already has parent_matrix
+    def get_world_matrix(self) -> glm.mat4:
+        local_matrix = self.compute_transform_matrix()
+
+        if self.parent is not None:
+            return cast(mat4, self.parent.get_world_matrix() * local_matrix)
+
+        return local_matrix
 
     def render(self, aspect_ratio: float, parent_matrix: glm.mat4):
         world_model_matrix = cast(

@@ -33,7 +33,6 @@ class Material:
             self.shader.program_id, "LightingBlock"
         )
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
-
         if self.albedo != -1:
             glActiveTexture(GL_TEXTURE0)
             glBindTexture(GL_TEXTURE_2D, self.albedo)
@@ -55,8 +54,4 @@ class Material:
         self.shader.set_uniform_matrix("M", model_matrix)
         self.shader.set_uniform_matrix("V", view_matrix)
         self.shader.set_uniform_matrix("NormalMatrix", normal_matrix)
-        self.shader.set_uniform_vec3(
-            "LightPosition_worldspace", self.light_pos
-        )
-        self.shader.set_uniform_vec3("LightColor", vec3(1, 1, 1))
         self.shader.set_uniform_vec3("cameraPosition_worldspace", cam_pos)

@@ -25,31 +25,39 @@ in vec3 fragmentColor;
 in vec3 Position_worldspace;
 in vec3 Normal_worldspace;
 in vec3 EyeDirection_worldspace;
-in vec3 LightDirection_worldspace;
 
 out vec4 color;
 
 void main() {
-  float LightIntensity = 1.0;
-
   vec3 mixedColor = texture(albedo, UV).rgb * fragmentColor;
   vec3 MaterialAmbientColor = vec3(0.1) * mixedColor;
   vec3 MaterialSpecularColor = vec3(0.3);
 
-  float distance = length(LightPosition_worldspace - Position_worldspace);
-  float attenuation = 1.0 / (1.0 + 0.1 * distance + 0.01 * distance * distance);
-
   vec3 n = normalize(Normal_worldspace);
-  vec3 l = normalize(LightDirection_worldspace);
   vec3 E = normalize(EyeDirection_worldspace);
 
-  vec3 R = reflect(-l, n);
+  vec3 total_diffuse = vec3(0.0);
+  vec3 total_specular = vec3(0.0);
+  for(int i = 0; i < u_active_light_count; i++) {
+    vec3 l;
+    float attenuation = 1.0;
+    LightData light_data = u_lights[i];
+    if(light_data.type == 0) { // Point light
+      float distance = length(u_lights[i].position - Position_worldspace);
+      attenuation = 1.0 / (1.0 + 0.1 * distance + 0.01 * distance * distance);
+      l = normalize(u_lights[i].position - Position_worldspace);
+    } else if(light_data.type == 1) { // Directional light
+      l = normalize(-u_lights[i].direction);
+    }
+    vec3 R = reflect(-l, n);
+    float cosTheta = max(dot(n, l), 0.0);
+    float cosAlpha = max(dot(E, R), 0.0);
 
-  float cosTheta = max(dot(n, l), 0.0);
-  float cosAlpha = max(dot(E, R), 0.0);
+        // Accumulate light contributions, factoring in unique intensities and attenuation
+    total_diffuse += mixedColor * u_lights[i].color * cosTheta * u_lights[i].intensity * attenuation;
+    total_specular += MaterialSpecularColor * u_lights[i].color * pow(cosAlpha, 32.0) * u_lights[i].intensity * attenuation;
 
-  vec3 diffuse = mixedColor * LightColor * cosTheta;
-  vec3 specular = MaterialSpecularColor * LightColor * pow(cosAlpha, 32.0);
-
-  color = vec4(clamp(MaterialAmbientColor + (diffuse + specular) * LightIntensity * attenuation, 0.0, 1.0), 1.0);
+  }
+  vec3 final_color = MaterialAmbientColor + total_diffuse + total_specular;
+  color = vec4(clamp(final_color, 0.0, 1.0), 1.0);
 }

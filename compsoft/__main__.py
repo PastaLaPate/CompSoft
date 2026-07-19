@@ -8,6 +8,7 @@ from compsoft.actor import Actor
 from compsoft.camera import Camera
 from compsoft.camera_controls import CameraControls
 from compsoft.components.cube import SimpleCubeComponent
+from compsoft.components.light import PointLight
 from compsoft.components.model_mesh import ModelMeshComponent
 from compsoft.consts import ROOT
 from compsoft.material import Material
@@ -30,6 +31,7 @@ def main():
     cam = Camera(vec3(4, 4, 3))
     cam.look_at(vec3(0, 0, 0))
     scene = Scene(cam)
+    scene.load()
 
     mat = Material(ROOT / "textures" / "mc_dirt.png")
 
@@ -47,6 +49,7 @@ def main():
 
     light_actor = scene.add_actor(Actor())
     light_cube = light_actor.add_component(SimpleCubeComponent(mat))
+    light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
 
     controls = CameraControls(cam, window)
