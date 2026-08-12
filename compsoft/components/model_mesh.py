@@ -10,6 +10,7 @@ from compsoft.material import Material
 class ModelMeshComponent(SimpleMeshComponent):
     def __init__(self, path: Path, material: Material) -> None:
         mesh = trimesh.load_mesh(path)
+
         trimesh.repair.fix_normals(mesh)
 
         uv_array = getattr(mesh.visual, "uv", None)

@@ -6,17 +6,19 @@ from OpenGL.constant import Constant
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
     GL_DYNAMIC_DRAW,
+    GL_ELEMENT_ARRAY_BUFFER,
     GL_FALSE,
     GL_FLOAT,
     GL_STATIC_DRAW,
     GL_TRIANGLES,
+    GL_UNSIGNED_INT,
     glBindBuffer,
     glBindVertexArray,
     glBufferData,
     glBufferSubData,
     glDeleteBuffers,
     glDeleteVertexArrays,
-    glDrawArrays,
+    glDrawElements,
     glEnableVertexAttribArray,
     glGenBuffers,
     glGenVertexArrays,
@@ -26,6 +28,7 @@ from pyglm.glm import mat4, vec2, vec3
 
 from compsoft.components.component import RenderableComponent
 from compsoft.material import Material
+from compsoft.vbo_indexer import index_vbo
 
 
 class SimpleMeshComponent(RenderableComponent):
@@ -71,10 +74,13 @@ class SimpleMeshComponent(RenderableComponent):
 
         # OpenGL IDs
         self.vao = 0
+        self.ebo = 0
         self.vbo_vertices = 0
         self.vbo_colors = 0
         self.vbo_uvs = 0
         self.vbo_normals = 0
+
+        self.index_count = 0
 
         self.usage: Constant = (
             GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
@@ -157,6 +163,10 @@ class SimpleMeshComponent(RenderableComponent):
             edge_1 = v2 - v1
             edge_2 = v3 - v1
             face_normal = glm.cross(edge_1, edge_2)
+
+            if glm.length(face_normal) > 1e-8:
+                face_normal = glm.normalize(face_normal)
+
             for v in (v1, v2, v3):
                 key = (v.x, v.y, v.z)
                 if key not in vertex_normal_map:
@@ -168,20 +178,16 @@ class SimpleMeshComponent(RenderableComponent):
             for v in triangle:
                 key = (v.x, v.y, v.z)
                 accumulated_normal = vertex_normal_map[key]
-
-                if glm.length(accumulated_normal) > 0.0001:
+                if glm.length(accumulated_normal) > 1e-8:
                     smoothed_normal = glm.normalize(accumulated_normal)
                 else:
-                    smoothed_normal = glm.vec3(
-                        0.0, 1.0, 0.0
-                    )  # Fallback up-vector
-
+                    smoothed_normal = glm.vec3(0.0, 1.0, 0.0)
                 self._normals.append(smoothed_normal)
 
         self._dirty_flags |= self.DIRTY_NORMALS
 
     def get_transform_matrix(self) -> glm.mat4x4:
-        if self.t_matrix and not self.dirty_matrix:
+        if self.t_matrix is not None and not self.dirty_matrix:
             return self.t_matrix
 
         identity = glm.mat4(1.0)
@@ -205,12 +211,32 @@ class SimpleMeshComponent(RenderableComponent):
                 f"Mesh data mismatch! Triangles: {len(self.triangles)}, "
                 f"UVs: {len(self.uvs)}, Vertex Colors: {len(self._colors)}"
             )
+
+        indices, vertices, uvs, normals, colors = index_vbo(
+            [vertice for t in self._triangles for vertice in t],
+            [uv for t_uv in self._uvs for uv in t_uv],
+            self._normals,
+            self._colors,
+        )
+
+        self.index_count = len(indices)
+
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
 
+        self.ebo = glGenBuffers(1)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+        index_buffer_data = np.array(indices, dtype=np.uint32)
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            index_buffer_data.nbytes,
+            index_buffer_data,
+            self.usage,
+        )
+
         # Vertex Buffer
         vertex_buffer_data = np.array(
-            [[c.x, c.y, c.z] for t in self._triangles for c in t],
+            [[v.x, v.y, v.z] for v in vertices],
             dtype=np.float32,
         ).ravel()
 
@@ -228,7 +254,7 @@ class SimpleMeshComponent(RenderableComponent):
 
         # Color Buffer
         color_buffer_data = np.array(
-            [[c.x, c.y, c.z] for c in self._colors],
+            [[c.x, c.y, c.z] for c in colors],
             dtype=np.float32,
         ).ravel()
         self.vbo_colors = glGenBuffers(1)
@@ -244,7 +270,7 @@ class SimpleMeshComponent(RenderableComponent):
 
         # UVs Buffer
         uv_buffer_data = np.array(
-            [[vertex.x, vertex.y] for t in self.uvs for vertex in t],
+            [[vertex.x, vertex.y] for vertex in uvs],
             dtype=np.float32,
         ).ravel()
         self.vbo_uvs = glGenBuffers(1)
@@ -259,7 +285,7 @@ class SimpleMeshComponent(RenderableComponent):
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
 
         normals_buffer_data = np.array(
-            [[n.x, n.y, n.z] for n in self._normals],
+            [[n.x, n.y, n.z] for n in normals],
             dtype=np.float32,
         ).ravel()
         self.vbo_normals = glGenBuffers(1)
@@ -276,7 +302,7 @@ class SimpleMeshComponent(RenderableComponent):
         glBindVertexArray(0)
 
     def update(self):
-        """Updates VRAM with new triangle or color data."""
+        """Updates VRAM with new triangle or color data. TODO: Decide if it should re-run vbo_indexer"""
         if not self.dynamic:
             print(
                 "Warning: Attempted to update a static mesh. This can cause significant performance drop if done too frequently."
@@ -290,6 +316,7 @@ class SimpleMeshComponent(RenderableComponent):
                 dtype=np.float32,
             ).ravel()
             glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
+
             # Orphanage
             glBufferData(
                 GL_ARRAY_BUFFER, vertex_buffer_data.nbytes, None, self.usage
@@ -352,7 +379,12 @@ class SimpleMeshComponent(RenderableComponent):
 
     def draw(self, aspect_ratio: float, world_model_matrix: mat4):
         """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
-        if self.vao == 0 or not self.parent or not self.parent.scene:
+        if (
+            self.vao == 0
+            or self.ebo == 0
+            or not self.parent
+            or not self.parent.scene
+        ):
             return  # Prevent drawing before load() is called
 
         world_model_matrix = cast(
@@ -381,8 +413,10 @@ class SimpleMeshComponent(RenderableComponent):
 
         # draw the geometry
         glBindVertexArray(self.vao)
-        glDrawArrays(GL_TRIANGLES, 0, 3 * len(self._triangles))
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+        glDrawElements(GL_TRIANGLES, self.index_count, GL_UNSIGNED_INT, None)
         glBindVertexArray(0)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
     def unload(self):
         """Frees GPU resources when the component is destroyed."""
@@ -394,8 +428,11 @@ class SimpleMeshComponent(RenderableComponent):
             glDeleteBuffers(1, [self.vbo_uvs])
         if self.vao:
             glDeleteVertexArrays(1, [self.vao])
+        if self.ebo:
+            glDeleteBuffers(1, [self.ebo])
 
         self.vbo_vertices = 0
         self.vbo_colors = 0
         self.vbo_uvs = 0
         self.vao = 0
+        self.ebo = 0

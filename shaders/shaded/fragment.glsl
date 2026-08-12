@@ -17,8 +17,6 @@ layout(std140) uniform LightingBlock {
 };
 
 uniform sampler2D albedo;
-uniform vec3 LightColor;
-uniform vec3 LightPosition_worldspace;
 
 in vec2 UV;
 in vec3 fragmentColor;

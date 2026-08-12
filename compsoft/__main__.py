@@ -1,5 +1,6 @@
 import math
 from collections import deque
+from pathlib import Path
 
 import glfw
 from glm import vec3
@@ -52,8 +53,27 @@ def main():
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
 
+    hq_mat = Material(
+        Path(
+            "/home/alex/Documents/CompositionSoftware/textures/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_albedo.jpeg"
+        )
+    )
+
+    hq_actor = scene.add_actor(Actor())
+    # hq_actor.scale = vec3(0.0001, 0.0001, 0.0001)
+    hq_mesh = hq_actor.add_component(
+        ModelMeshComponent(
+            Path(
+                "/home/alex/Documents/CompositionSoftware/models/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High.gltf"
+            ),
+            hq_mat,
+        )
+    )
+    # hq_mesh.scale = vec3(0.0001, 0.0001, 0.0001)
+    hq_mesh.load()
+
     controls = CameraControls(cam, window)
-    frame_times = deque(maxlen=60)
+    frame_times = deque(maxlen=1500)
     t = 0
 
     while (

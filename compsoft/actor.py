@@ -159,7 +159,7 @@ class Actor:
     # Rendering
 
     def compute_transform_matrix(self) -> glm.mat4x4:
-        if self.t_matrix and not self.dirty_matrix:
+        if self.t_matrix is not None and not self.dirty_matrix:
             return self.t_matrix
         identity = glm.mat4(1.0)
 

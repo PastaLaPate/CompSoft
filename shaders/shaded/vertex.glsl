@@ -10,12 +10,10 @@ out vec3 fragmentColor;
 out vec3 Position_worldspace;
 out vec3 Normal_worldspace;
 out vec3 EyeDirection_worldspace;
-out vec3 LightDirection_worldspace;
 
 uniform mat4 MVP;
 uniform mat4 M;            // Model matrix (transforms Model space -> World space)
 uniform mat4 NormalMatrix; // Now transforms Normal vectors -> World space
-uniform vec3 LightPosition_worldspace;
 uniform vec3 cameraPosition_worldspace; // Added to find view vector in world space
 
 void main() {
@@ -27,8 +25,6 @@ void main() {
   Position_worldspace = (M * vec4(vertexPosition_modelspace, 1.0)).xyz;
 
   EyeDirection_worldspace = cameraPosition_worldspace - Position_worldspace;
-
-  LightDirection_worldspace = LightPosition_worldspace - Position_worldspace;
 
   Normal_worldspace = (NormalMatrix * vec4(vertexNormal_modelspace, 0.0)).xyz;
 }

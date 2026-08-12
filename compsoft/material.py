@@ -33,12 +33,7 @@ class Material:
             self.shader.program_id, "LightingBlock"
         )
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
-        if self.albedo != -1:
-            glActiveTexture(GL_TEXTURE0)
-            glBindTexture(GL_TEXTURE_2D, self.albedo)
-
-            # Set sampler location
-            self.shader.set_uniform_i("albedo", 0)
+        self.shader.set_uniform_i("albedo", 0)
 
     def use(
         self,
@@ -49,6 +44,10 @@ class Material:
         cam_pos: vec3,
     ):
         self.shader.use()
+
+        if self.albedo != -1:
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, self.albedo)
 
         self.shader.set_uniform_matrix("MVP", mvp_matrix)
         self.shader.set_uniform_matrix("M", model_matrix)
