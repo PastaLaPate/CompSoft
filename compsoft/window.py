@@ -1,3 +1,5 @@
+from typing import Callable
+
 import glfw
 from OpenGL.GL import (
     GL_COLOR_BUFFER_BIT,
@@ -17,6 +19,8 @@ class Window:
         self.__height = h
         self.__title = title
         self.__running = False
+
+        self.__size_listeners: list[Callable[[int, int], None]] = []
 
         self.dt: float = 0
         self.last_time: float = 0
@@ -40,6 +44,7 @@ class Window:
             window, glfw.STICKY_KEYS, 0x1
         )  # == GL_TRUE but avoids putting opengl code here.
         glfw.swap_interval(0)
+        glfw.set_framebuffer_size_callback(window, self._call_listeners)
 
         glEnable(GL_CULL_FACE)
         glEnable(GL_DEPTH_TEST)
@@ -72,12 +77,13 @@ class Window:
         self.__title = t
         glfw.set_window_title(self.window, t)
 
-    def exit(self):
-        self.__running = False
-        # glfw.destroy_window(self.window)
+    def add_window_resize_listener(self, listener: Callable[[int, int], None]):
+        self.__size_listeners.append(listener)
 
-    def should_close(self):
-        return glfw.window_should_close(self.window) == glfw.TRUE
+    def _call_listeners(self, window, w: int, h: int):
+        self.__width = w
+        self.__height = h
+        [listener(w, h) for listener in self.__size_listeners]
 
     def clear(self):
         current_time = glfw.get_time()
@@ -113,3 +119,10 @@ class Window:
             glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_MIDDLE)
             == glfw.PRESS
         )
+
+    def exit(self):
+        self.__running = False
+        # glfw.destroy_window(self.window)
+
+    def should_close(self):
+        return glfw.window_should_close(self.window) == glfw.TRUE

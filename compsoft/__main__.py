@@ -12,8 +12,10 @@ from compsoft.components.cube import SimpleCubeComponent
 from compsoft.components.light import PointLight
 from compsoft.components.model_mesh import ModelMeshComponent
 from compsoft.consts import ROOT
+from compsoft.frame_buffer import FrameBuffer
 from compsoft.material import Material
 from compsoft.scene import Scene
+from compsoft.screen_quad import ScreenQuad
 from compsoft.window import Window
 
 
@@ -81,6 +83,18 @@ def main():
     frame_times = deque(maxlen=1500)
     t = 0
 
+    fb = FrameBuffer(800, 600)
+    sq = ScreenQuad(
+        Path(
+            "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/vertex.glsl"
+        ),
+        Path(
+            "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/fragment.glsl"
+        ),
+    )
+
+    window.add_window_resize_listener(fb._on_window_size_changed)
+
     while (
         not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
     ):
@@ -104,6 +118,10 @@ def main():
             math.cos(math.radians(t)) * 10, 10, math.sin(math.radians(t)) * 10
         )
         light_actor.position = mat.light_pos
+        fb.bind()
         scene.render(window.aspect_ratio)
+        fb.unbind()
+        sq.render(fb.rendered_tex)
+
         window.swap_buffers()
         window.poll_events()

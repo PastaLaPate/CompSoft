@@ -26,7 +26,7 @@ in vec3 Normal_worldspace;
 in vec3 EyeDirection_worldspace;
 in mat3 TBN_worldspace;
 
-out vec4 color;
+layout(location = 0) out vec4 color; // Colorattachment0
 
 void main() {
   vec3 mixedColor = texture(albedo, UV).rgb * fragmentColor;
