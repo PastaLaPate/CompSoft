@@ -2,6 +2,7 @@ from pathlib import Path
 
 from OpenGL.GL import (
     GL_TEXTURE0,
+    GL_TEXTURE1,
     GL_TEXTURE_2D,
     glActiveTexture,
     glBindTexture,
@@ -17,7 +18,7 @@ from compsoft.textures import TextureRegistry
 
 
 class Material:
-    def __init__(self, albedo: Path) -> None:
+    def __init__(self, albedo: Path, normal: Path | None = None) -> None:
         self.shader = Shader(
             ROOT / "shaders" / "shaded" / "vertex.glsl",
             ROOT / "shaders" / "shaded" / "fragment.glsl",
@@ -25,6 +26,11 @@ class Material:
         self.light_pos = vec3(10, 10, 10)
 
         self.albedo = TextureRegistry.get_texture(albedo) or -1
+        self.normal = (
+            TextureRegistry.get_texture(normal)
+            if normal
+            else TextureRegistry.get_default_normal() or -1
+        )
 
     def bind_properties(self):
         glUseProgram(self.shader.program_id)
@@ -34,6 +40,7 @@ class Material:
         )
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
         self.shader.set_uniform_i("albedo", 0)
+        self.shader.set_uniform_i("normal", 1)
 
     def use(
         self,
@@ -48,6 +55,9 @@ class Material:
         if self.albedo != -1:
             glActiveTexture(GL_TEXTURE0)
             glBindTexture(GL_TEXTURE_2D, self.albedo)
+        if self.normal != -1:
+            glActiveTexture(GL_TEXTURE1)
+            glBindTexture(GL_TEXTURE_2D, self.normal)
 
         self.shader.set_uniform_matrix("MVP", mvp_matrix)
         self.shader.set_uniform_matrix("M", model_matrix)

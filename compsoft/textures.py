@@ -3,7 +3,9 @@ from pathlib import Path
 from OpenGL.GL import (
     GL_LINEAR,
     GL_LINEAR_MIPMAP_LINEAR,
+    GL_NEAREST,
     GL_RGB,
+    GL_RGBA,
     GL_TEXTURE_2D,
     GL_TEXTURE_MAG_FILTER,
     GL_TEXTURE_MIN_FILTER,
@@ -21,6 +23,7 @@ from PIL.Image import Transpose
 
 class TextureRegistry:
     _cache: dict[str, int] = {}  # texture_path: texture_id
+    _default_normal: int = -1
 
     @classmethod
     def get_texture(cls, txt: Path) -> int:
@@ -33,6 +36,37 @@ class TextureRegistry:
         print(f"Registering textures, txt: {key}")
         txt_id = cls._load_from_file(txt)
         cls._cache[key] = txt_id
+        return txt_id
+
+    @classmethod
+    def get_default_normal(cls) -> int:
+        if cls._default_normal == -1:
+            id = cls._generate_normal_texture()
+            cls._default_normal = id
+        return cls._default_normal
+
+    @classmethod
+    def _generate_normal_texture(cls) -> int:
+        pixel_data = bytes([128, 128, 255, 255])
+
+        txt_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, txt_id)
+
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            1,
+            1,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            pixel_data,
+        )
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glBindTexture(GL_TEXTURE_2D, 0)
         return txt_id
 
     @classmethod

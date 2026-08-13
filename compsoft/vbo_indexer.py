@@ -31,9 +31,17 @@ def index_vbo(
     uvs: list[vec2],
     normals: list[vec3],
     colors: list[vec3],
+    tangents: list[vec3],
+    bitangents: list[vec3],
 ) -> Tuple[
-    list[int], list[vec3], list[vec2], list[vec3], list[vec3]
-]:  # indices, vertices, uvs, normals, colors
+    list[int],
+    list[vec3],
+    list[vec2],
+    list[vec3],
+    list[vec3],
+    list[vec3],
+    list[vec3],
+]:  # indices, vertices, uvs, normals, colors, tangents, bitangents
     vertex_to_out_index: Dict[PackedVertex, int] = {}
 
     indices: list[int] = []
@@ -41,6 +49,8 @@ def index_vbo(
     out_uvs: list[vec2] = []
     out_normals: list[vec3] = []
     out_colors: list[vec3] = []
+    out_tangents: list[vec3] = []
+    out_bitangents: list[vec3] = []
 
     for i in range(len(vertices)):
         packed_vertex = PackedVertex(
@@ -51,13 +61,26 @@ def index_vbo(
         )
         if found:
             indices.append(vertex_to_out_index[packed_vertex])
+
+            out_tangents[vertex_to_out_index[packed_vertex]] += tangents[i]
+            out_bitangents[vertex_to_out_index[packed_vertex]] += bitangents[i]
         else:
             out_vertices.append(vertices[i])
             out_uvs.append(uvs[i])
             out_normals.append(normals[i])
             out_colors.append(colors[i])
+            out_tangents.append(tangents[i])
+            out_bitangents.append(bitangents[i])
             new_idx = len(out_vertices) - 1
             indices.append(new_idx)
             vertex_to_out_index[packed_vertex] = new_idx
 
-    return indices, out_vertices, out_uvs, out_normals, out_colors
+    return (
+        indices,
+        out_vertices,
+        out_uvs,
+        out_normals,
+        out_colors,
+        out_tangents,
+        out_bitangents,
+    )

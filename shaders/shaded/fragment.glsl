@@ -17,12 +17,14 @@ layout(std140) uniform LightingBlock {
 };
 
 uniform sampler2D albedo;
+uniform sampler2D normal;
 
 in vec2 UV;
 in vec3 fragmentColor;
 in vec3 Position_worldspace;
 in vec3 Normal_worldspace;
 in vec3 EyeDirection_worldspace;
+in mat3 TBN_worldspace;
 
 out vec4 color;
 
@@ -30,8 +32,8 @@ void main() {
   vec3 mixedColor = texture(albedo, UV).rgb * fragmentColor;
   vec3 MaterialAmbientColor = vec3(0.1) * mixedColor;
   vec3 MaterialSpecularColor = vec3(0.3);
-
-  vec3 n = normalize(Normal_worldspace);
+  vec3 NormalTangentspace = texture(normal, UV).rgb * 2.0 - 1.0;
+  vec3 n = normalize(TBN_worldspace * NormalTangentspace);
   vec3 E = normalize(EyeDirection_worldspace);
 
   vec3 total_diffuse = vec3(0.0);

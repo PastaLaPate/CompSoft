@@ -34,7 +34,9 @@ def main():
     scene = Scene(cam)
     scene.load()
 
-    mat = Material(ROOT / "textures" / "mc_dirt.png")
+    mat = Material(
+        ROOT / "textures" / "mc_dirt.png",
+    )
 
     actor = scene.add_actor(Actor())
     cube = actor.add_component(SimpleCubeComponent(mat))
@@ -56,11 +58,14 @@ def main():
     hq_mat = Material(
         Path(
             "/home/alex/Documents/CompositionSoftware/textures/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_albedo.jpeg"
-        )
+        ),
+        Path(
+            "/home/alex/Documents/CompositionSoftware/textures/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_normal.jpeg"
+        ),
     )
 
     hq_actor = scene.add_actor(Actor())
-    # hq_actor.scale = vec3(0.0001, 0.0001, 0.0001)
+    hq_actor.position = vec3(0, 5, 0)
     hq_mesh = hq_actor.add_component(
         ModelMeshComponent(
             Path(

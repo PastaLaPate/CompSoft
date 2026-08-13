@@ -7,10 +7,11 @@ from OpenGL.GL import (
     glUniform1f,
     glUniform1i,
     glUniform3f,
+    glUniformMatrix3fv,
     glUniformMatrix4fv,
     glUseProgram,
 )
-from pyglm.glm import vec3
+from pyglm.glm import mat3, mat4, vec3
 
 from compsoft.shaders import ShaderRegistry
 
@@ -30,7 +31,10 @@ class Shader:
     def set_uniform_matrix(self, name: str, matrix) -> None:
         loc = glGetUniformLocation(self.program_id, name)
         if loc != -1:
-            glUniformMatrix4fv(loc, 1, GL_FALSE, value_ptr(matrix))
+            if isinstance(matrix, mat4):
+                glUniformMatrix4fv(loc, 1, GL_FALSE, value_ptr(matrix))
+            elif isinstance(matrix, mat3):
+                glUniformMatrix3fv(loc, 1, GL_FALSE, value_ptr(matrix))
 
     def set_uniform_float(self, name: str, val: float) -> None:
         loc = self.get_uniform_location(name)

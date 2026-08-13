@@ -59,6 +59,8 @@ class SimpleMeshComponent(RenderableComponent):
         ]
         self._uvs = uvs
         self._normals = []
+        self._tangents = []
+        self._bitangents = []
 
         self._mat = material
         self._mat.bind_properties()
@@ -79,6 +81,8 @@ class SimpleMeshComponent(RenderableComponent):
         self.vbo_colors = 0
         self.vbo_uvs = 0
         self.vbo_normals = 0
+        self.vbo_tangents = 0
+        self.vbo_bitangents = 0
 
         self.index_count = 0
 
@@ -87,6 +91,7 @@ class SimpleMeshComponent(RenderableComponent):
         )
 
         self.compute_normals()
+        self.compute_tangent_basis()
 
     @property
     def triangles(self) -> list[tuple[vec3, vec3, vec3]]:
@@ -97,6 +102,7 @@ class SimpleMeshComponent(RenderableComponent):
         self._triangles = triangles
         self._dirty_flags |= self.DIRTY_VERTICES
         self.compute_normals()
+        self.compute_tangent_basis()
 
     @property
     def colors(self) -> list[vec3]:
@@ -186,6 +192,49 @@ class SimpleMeshComponent(RenderableComponent):
 
         self._dirty_flags |= self.DIRTY_NORMALS
 
+    def compute_tangent_basis(self) -> None:
+        if min(len(self.triangles), len(self.uvs), len(self._normals)) == 0:
+            return
+
+        tangents = []
+        bitangents = []
+
+        for i in range(len(self.triangles)):
+            v0, v1, v2 = self.triangles[i]
+
+            uv0, uv1, uv2 = self.uvs[i]
+
+            delta_pos_1 = v1 - v0
+            delta_pos_2 = v2 - v0
+
+            delta_uv_1 = uv1 - uv0
+            delta_uv_2 = uv2 - uv0
+
+            det = delta_uv_1.x * delta_uv_2.y - delta_uv_1.y * delta_uv_2.x
+
+            if abs(det) > 1e-6:
+                r = 1.0 / det
+                tangent = (
+                    delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y
+                ) * r
+            else:
+                tangent = vec3(1.0, 0.0, 0.0)
+
+            for v_idx in [
+                i * 3,
+                i * 3 + 1,
+                i * 3 + 2,
+            ]:
+                n = self._normals[v_idx]
+                tangent = glm.normalize(tangent - glm.dot(tangent, n) * n)
+                bitangent = glm.cross(n, tangent)
+
+                tangents.append(tangent)
+                bitangents.append(bitangent)
+
+        self._tangents = tangents
+        self._bitangents = bitangents
+
     def get_transform_matrix(self) -> glm.mat4x4:
         if self.t_matrix is not None and not self.dirty_matrix:
             return self.t_matrix
@@ -212,11 +261,15 @@ class SimpleMeshComponent(RenderableComponent):
                 f"UVs: {len(self.uvs)}, Vertex Colors: {len(self._colors)}"
             )
 
-        indices, vertices, uvs, normals, colors = index_vbo(
-            [vertice for t in self._triangles for vertice in t],
-            [uv for t_uv in self._uvs for uv in t_uv],
-            self._normals,
-            self._colors,
+        indices, vertices, uvs, normals, colors, tangents, bitangents = (
+            index_vbo(
+                [vertice for t in self._triangles for vertice in t],
+                [uv for t_uv in self._uvs for uv in t_uv],
+                self._normals,
+                self._colors,
+                self._tangents,
+                self._bitangents,
+            )
         )
 
         self.index_count = len(indices)
@@ -299,6 +352,34 @@ class SimpleMeshComponent(RenderableComponent):
         glEnableVertexAttribArray(3)
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, None)
 
+        tangents_buffer_data = np.array(
+            [[t.x, t.y, t.z] for t in tangents], dtype=np.float32
+        ).ravel()
+        self.vbo_tangents = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_tangents)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            tangents_buffer_data.nbytes,
+            tangents_buffer_data,
+            self.usage,
+        )
+        glEnableVertexAttribArray(4)
+        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, None)
+
+        bitangents_buffer_data = np.array(
+            [[bt.x, bt.y, bt.z] for bt in self._bitangents], dtype=np.float32
+        ).ravel()
+        self.vbo_bitangents = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_bitangents)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            bitangents_buffer_data.nbytes,
+            bitangents_buffer_data,
+            self.usage,
+        )
+        glEnableVertexAttribArray(5)
+        glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, 0, None)
+
         glBindVertexArray(0)
 
     def update(self):
@@ -307,6 +388,9 @@ class SimpleMeshComponent(RenderableComponent):
             print(
                 "Warning: Attempted to update a static mesh. This can cause significant performance drop if done too frequently."
             )
+        print(
+            "AHAHAHHA THIS FUNCTION IS BROKEN, IT WILL BE MUCH MORE COMPLEX and currently breaks meshes"
+        )
         if self._dirty_flags == self.DIRTY_NONE:
             return
 
