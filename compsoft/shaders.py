@@ -1,9 +1,10 @@
 from pathlib import Path
+
 from OpenGL.GL import (
-    shaders,
-    GL_VERTEX_SHADER,
     GL_FRAGMENT_SHADER,
+    GL_VERTEX_SHADER,
     glDeleteProgram,
+    shaders,
 )
 
 
@@ -48,6 +49,12 @@ class ShaderRegistry:
             raise RuntimeError(
                 f"Shader compilation failed for {vert_path} / {frag_path}:\n{e}"
             )
+
+    @classmethod
+    def remove_cache_for_program(cls, program_id: int):
+        for i, prog_id in cls._cache.items():
+            del cls._cache[i]
+            break
 
     @classmethod
     def clear_cache(cls):

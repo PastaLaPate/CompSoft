@@ -3,6 +3,7 @@ from pathlib import Path
 from glm import value_ptr
 from OpenGL.GL import (
     GL_FALSE,
+    glDeleteProgram,
     glGetUniformLocation,
     glUniform1f,
     glUniform1i,
@@ -53,3 +54,7 @@ class Shader:
 
     def use(self):
         glUseProgram(self.program_id)
+
+    def destroy(self):
+        glDeleteProgram(self.program_id)
+        ShaderRegistry.remove_cache_for_program(self.program_id)

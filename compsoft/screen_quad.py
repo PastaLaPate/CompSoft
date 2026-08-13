@@ -16,6 +16,8 @@ from OpenGL.GL import (
     glBindTexture,
     glBindVertexArray,
     glBufferData,
+    glDeleteBuffers,
+    glDeleteVertexArrays,
     glDisable,
     glDrawArrays,
     glEnable,
@@ -85,3 +87,11 @@ class ScreenQuad:
         glBindVertexArray(0)
 
         glEnable(GL_DEPTH_TEST)
+
+    def destroy(self) -> None:
+        if self.vxt:
+            glDeleteVertexArrays(1, [self.vxt])
+        if self.quad_vertex_buffer:
+            glDeleteBuffers(1, [self.quad_vertex_buffer])
+        if self.shader:
+            self.shader.destroy()

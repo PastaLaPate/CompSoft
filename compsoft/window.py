@@ -122,7 +122,8 @@ class Window:
 
     def exit(self):
         self.__running = False
-        # glfw.destroy_window(self.window)
+        glfw.destroy_window(self.window)
+        glfw.terminate()
 
     def should_close(self):
         return glfw.window_should_close(self.window) == glfw.TRUE

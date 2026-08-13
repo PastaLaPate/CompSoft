@@ -125,3 +125,9 @@ def main():
 
         window.swap_buffers()
         window.poll_events()
+
+    # ngl, kinda useless as it will be freed on process end
+    fb.destroy()
+    sq.destroy()
+
+    window.exit()

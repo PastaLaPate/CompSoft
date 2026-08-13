@@ -18,6 +18,9 @@ from OpenGL.GL import (
     glBindTexture,
     glCheckFramebufferStatus,
     glClear,
+    glDeleteFramebuffers,
+    glDeleteRenderbuffers,
+    glDeleteTextures,
     glDrawBuffers,
     glFramebufferRenderbuffer,
     glFramebufferTexture,
@@ -118,3 +121,11 @@ class FrameBuffer:
     def unbind(self) -> None:
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
         glViewport(0, 0, self.width, self.height)
+
+    def destroy(self):
+        if self.fbo:
+            glDeleteFramebuffers(1, [self.fbo])
+        if self.rendered_tex:
+            glDeleteTextures(1, [self.rendered_tex])
+        if self.drb:
+            glDeleteRenderbuffers(1, [self.drb])
