@@ -32,7 +32,6 @@ def index_vbo(
     normals: list[vec3],
     colors: list[vec3],
     tangents: list[vec3],
-    bitangents: list[vec3],
 ) -> Tuple[
     list[int],
     list[vec3],
@@ -40,8 +39,8 @@ def index_vbo(
     list[vec3],
     list[vec3],
     list[vec3],
-    list[vec3],
-]:  # indices, vertices, uvs, normals, colors, tangents, bitangents
+    list[int],
+]:  # indices, vertices, uvs, normals, colors, tangents, reverse_lookup
     vertex_to_out_index: Dict[PackedVertex, int] = {}
 
     indices: list[int] = []
@@ -50,7 +49,7 @@ def index_vbo(
     out_normals: list[vec3] = []
     out_colors: list[vec3] = []
     out_tangents: list[vec3] = []
-    out_bitangents: list[vec3] = []
+    reverse_lookup: list[int] = []
 
     for i in range(len(vertices)):
         packed_vertex = PackedVertex(
@@ -63,16 +62,15 @@ def index_vbo(
             indices.append(vertex_to_out_index[packed_vertex])
 
             out_tangents[vertex_to_out_index[packed_vertex]] += tangents[i]
-            out_bitangents[vertex_to_out_index[packed_vertex]] += bitangents[i]
         else:
             out_vertices.append(vertices[i])
             out_uvs.append(uvs[i])
             out_normals.append(normals[i])
             out_colors.append(colors[i])
             out_tangents.append(tangents[i])
-            out_bitangents.append(bitangents[i])
             new_idx = len(out_vertices) - 1
             indices.append(new_idx)
+            reverse_lookup.append(i)
             vertex_to_out_index[packed_vertex] = new_idx
 
     return (
@@ -82,5 +80,5 @@ def index_vbo(
         out_normals,
         out_colors,
         out_tangents,
-        out_bitangents,
+        reverse_lookup,
     )
