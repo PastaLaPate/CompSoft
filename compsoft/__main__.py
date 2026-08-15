@@ -1,25 +1,18 @@
 import math
 import os
-from collections import deque
 from pathlib import Path
 
-import glfw
 import OpenGL.GL as GL
 from glm import vec3
 from OpenGL.GL.glget import glGetString
 
 from compsoft.actor import Actor
-from compsoft.camera import Camera
-from compsoft.camera_controls import CameraControls
 from compsoft.components.cube import SimpleCubeComponent
 from compsoft.components.light import PointLight
 from compsoft.components.model_mesh import ModelMeshComponent
 from compsoft.consts import ROOT
-from compsoft.frame_buffer import FrameBuffer
+from compsoft.engine import Engine
 from compsoft.material import Material
-from compsoft.scene import Scene
-from compsoft.screen_quad import ScreenQuad
-from compsoft.window import Window
 
 # NVIDIA PRIME Offload
 os.environ["__NV_PRIME_RENDER_OFFLOAD"] = "1"
@@ -40,7 +33,8 @@ class COLORS:
 
 def main():
     print("Welcome...")
-    window = Window(800, 600, "CompSoft")
+
+    engine = Engine()
 
     vendor = glGetString(GL.GL_VENDOR)
     renderer = glGetString(GL.GL_RENDERER)
@@ -48,9 +42,7 @@ def main():
         print(f"Vendor:   {vendor.decode('utf-8')}")
         print(f"Renderer: {renderer.decode('utf-8')}")
 
-    cam = Camera(vec3(4, 4, 3))
-    cam.look_at(vec3(0, 0, 0))
-    scene = Scene(cam)
+    scene = engine.scene
     scene.load()
 
     mat = Material(
@@ -96,55 +88,12 @@ def main():
     # hq_mesh.scale = vec3(0.0001, 0.0001, 0.0001)
     hq_mesh.load()
 
-    controls = CameraControls(cam, window)
-    frame_times = deque(maxlen=1500)
-    t = 0
-
-    fb = FrameBuffer(800, 600)
-    sq = ScreenQuad(
-        Path(
-            "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/vertex.glsl"
-        ),
-        Path(
-            "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/fragment.glsl"
-        ),
-    )
-
-    window.add_window_resize_listener(fb._on_window_size_changed)
-
-    while (
-        not window.key_pressed(glfw.KEY_ESCAPE) and not window.should_close()
-    ):
-        window.clear()
-
-        # Track time in ms
-        dt_ms = window.dt * 1000
-        frame_times.append(dt_ms)
-
-        # Calculate metrics
-        avg_ms = sum(frame_times) / len(frame_times)
-        fps = 1000.0 / avg_ms
-
-        # Goofy huh
-        print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
-
-        controls.update(window.dt)
-
-        t += window.dt * 100
+    def tick(t: float, dt: float):
         mat.light_pos = vec3(
             math.cos(math.radians(t)) * 10, 10, math.sin(math.radians(t)) * 10
         )
         light_actor.position = mat.light_pos
-        fb.bind()
-        scene.render(window.aspect_ratio)
-        fb.unbind()
-        sq.render(fb.rendered_tex)
 
-        window.swap_buffers()
-        window.poll_events()
-
-    # ngl, kinda useless as it will be freed on process end
-    fb.destroy()
-    sq.destroy()
-
-    window.exit()
+    engine._add_prerender_listener(tick)
+    engine.start()
+    engine.exit()
