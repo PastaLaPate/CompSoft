@@ -338,95 +338,59 @@ class SimpleMeshComponent(RenderableComponent):
         glBindVertexArray(self.vao)
 
         self.ebo = glGenBuffers(1)
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
-        index_buffer_data = np.array(indices, dtype=np.uint32)
-        glBufferData(
-            GL_ELEMENT_ARRAY_BUFFER,
-            index_buffer_data.nbytes,
-            index_buffer_data,
-            self.usage,
-        )
-
-        # Vertex Buffer
-        vertex_buffer_data = np.array(
-            [[v.x, v.y, v.z] for v in vertices],
-            dtype=np.float32,
-        ).ravel()
-
         self.vbo_vertices = glGenBuffers(1)
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
+        self.vbo_colors = glGenBuffers(1)
+        self.vbo_uvs = glGenBuffers(1)
+        self.vbo_normals = glGenBuffers(1)
+        self.vbo_tangents = glGenBuffers(1)
 
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            vertex_buffer_data.nbytes,  # 4 bytes per float
-            vertex_buffer_data,
-            self.usage,
+        index_buffer_data = np.array(indices, dtype=np.uint32)
+        self._sync_buffer(self.ebo, GL_ELEMENT_ARRAY_BUFFER, index_buffer_data)
+
+        vertex_buffer_data = self._pack(vertices)
+        self._sync_buffer(
+            self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
         )
+
+        color_buffer_data = self._pack(colors)
+        self._sync_buffer(self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data)
+
+        uv_buffer_data = self._pack(uvs)
+        self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
+
+        normals_buffer_data = self._pack(normals)
+        self._sync_buffer(
+            self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
+        )
+
+        tangents_buffer_data = self._pack(tangents)
+        self._sync_buffer(
+            self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
+        )
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
 
-        # Color Buffer
-        color_buffer_data = np.array(
-            [[c.x, c.y, c.z] for c in colors],
-            dtype=np.float32,
-        ).ravel()
-        self.vbo_colors = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            color_buffer_data.nbytes,
-            color_buffer_data,
-            self.usage,
-        )
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, None)
 
-        # UVs Buffer
-        uv_buffer_data = np.array(
-            [[vertex.x, vertex.y] for vertex in uvs],
-            dtype=np.float32,
-        ).ravel()
-        self.vbo_uvs = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            uv_buffer_data.nbytes,
-            uv_buffer_data,
-            self.usage,
-        )
         glEnableVertexAttribArray(2)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, None)
 
-        normals_buffer_data = np.array(
-            [[n.x, n.y, n.z] for n in normals],
-            dtype=np.float32,
-        ).ravel()
-        self.vbo_normals = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            normals_buffer_data.nbytes,
-            normals_buffer_data,
-            self.usage,
-        )
         glEnableVertexAttribArray(3)
         glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, None)
 
-        tangents_buffer_data = np.array(
-            [[t.x, t.y, t.z] for t in tangents], dtype=np.float32
-        ).ravel()
-        self.vbo_tangents = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_tangents)
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            tangents_buffer_data.nbytes,
-            tangents_buffer_data,
-            self.usage,
-        )
         glEnableVertexAttribArray(4)
         glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, None)
 
         glBindVertexArray(0)
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        self._dirty_flags = self.DIRTY_NONE
 
     def update_mesh(self):
         """Updates VRAM with new triangle or color data."""
@@ -468,101 +432,31 @@ class SimpleMeshComponent(RenderableComponent):
             self._reverse_vbo_index_lookup = reverse_vbo_index_lookup
 
             index_buffer_data = np.array(indices, dtype=np.uint32)
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
-            glBufferData(
-                GL_ELEMENT_ARRAY_BUFFER,
-                index_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ELEMENT_ARRAY_BUFFER,
-                0,
-                index_buffer_data.nbytes,
-                index_buffer_data,
+            self._sync_buffer(
+                self.ebo, GL_ELEMENT_ARRAY_BUFFER, index_buffer_data
             )
 
-            vertex_buffer_data = np.array(
-                [[v.x, v.y, v.z] for v in vertices],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                vertex_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                vertex_buffer_data.nbytes,  # 4 bytes per float
-                vertex_buffer_data,
+            vertex_buffer_data = self._pack(vertices)
+            self._sync_buffer(
+                self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
             )
 
-            color_buffer_data = np.array(
-                [[c.x, c.y, c.z] for c in colors],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                color_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER, 0, color_buffer_data.nbytes, color_buffer_data
+            color_buffer_data = self._pack(colors)
+            self._sync_buffer(
+                self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data
             )
 
-            uv_buffer_data = np.array(
-                [[vertex.x, vertex.y] for vertex in uvs],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                uv_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER, 0, uv_buffer_data.nbytes, uv_buffer_data
+            uv_buffer_data = self._pack(uvs)
+            self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
+
+            normals_buffer_data = self._pack(normals)
+            self._sync_buffer(
+                self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
             )
 
-            normals_buffer_data = np.array(
-                [[n.x, n.y, n.z] for n in normals],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                normals_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                normals_buffer_data.nbytes,
-                normals_buffer_data,
-            )
-
-            tangents_buffer_data = np.array(
-                [[t.x, t.y, t.z] for t in tangents], dtype=np.float32
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_tangents)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                tangents_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                tangents_buffer_data.nbytes,
-                tangents_buffer_data,
+            tangents_buffer_data = self._pack(tangents)
+            self._sync_buffer(
+                self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
             )
 
             self._dirty_flags = self.DIRTY_NONE  # Because by setting topology we also sent other variables (assuming they must have been changed too)
@@ -585,57 +479,19 @@ class SimpleMeshComponent(RenderableComponent):
             ]
             self._indexed_vertices = vertices
 
-            vertex_buffer_data = np.array(
-                [[v.x, v.y, v.z] for v in vertices],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                vertex_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                vertex_buffer_data.nbytes,  # 4 bytes per float
-                vertex_buffer_data,
+            vertex_buffer_data = self._pack(vertices)
+            self._sync_buffer(
+                self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
             )
 
-            normals_buffer_data = np.array(
-                [[n.x, n.y, n.z] for n in normals],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_normals)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                normals_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                normals_buffer_data.nbytes,
-                normals_buffer_data,
+            normals_buffer_data = self._pack(normals)
+            self._sync_buffer(
+                self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
             )
 
-            tangents_buffer_data = np.array(
-                [[t.x, t.y, t.z] for t in tangents], dtype=np.float32
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_tangents)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                tangents_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER,
-                0,
-                tangents_buffer_data.nbytes,
-                tangents_buffer_data,
+            tangents_buffer_data = self._pack(tangents)
+            self._sync_buffer(
+                self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
             )
 
         if self._dirty_flags & self.DIRTY_COLORS:
@@ -644,19 +500,9 @@ class SimpleMeshComponent(RenderableComponent):
                 for raw_idx in self._reverse_vbo_index_lookup
             ]
 
-            color_buffer_data = np.array(
-                [[c.x, c.y, c.z] for c in colors],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_colors)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                color_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER, 0, color_buffer_data.nbytes, color_buffer_data
+            color_buffer_data = self._pack(colors)
+            self._sync_buffer(
+                self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data
             )
 
         if self._dirty_flags & self.DIRTY_UVS:
@@ -665,28 +511,35 @@ class SimpleMeshComponent(RenderableComponent):
                 raw_uvs[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
             ]
 
-            uv_buffer_data = np.array(
-                [[vertex.x, vertex.y] for vertex in uvs],
-                dtype=np.float32,
-            ).ravel()
-            glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                uv_buffer_data.nbytes,
-                None,
-                self.usage,
-            )
-            glBufferSubData(
-                GL_ARRAY_BUFFER, 0, uv_buffer_data.nbytes, uv_buffer_data
-            )
+            uv_buffer_data = self._pack(uvs)
+            self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
 
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         self._dirty_flags = self.DIRTY_NONE
 
+    def _pack(self, list_: list[vec2] | list[vec3]) -> np.ndarray:
+        if not list_:
+            return np.empty(0, dtype=np.float32)
+
+        if isinstance(list_[0], vec2):
+            return np.array(
+                [v for vec in cast(list[vec2], list_) for v in (vec.x, vec.y)],
+                dtype=np.float32,
+            )
+        else:
+            return np.array(
+                [
+                    v
+                    for vec in cast(list[vec3], list_)
+                    for v in (vec.x, vec.y, vec.z)
+                ],
+                dtype=np.float32,
+            )
+
     def _sync_buffer(self, buffer_id: int, target: Constant, data: np.ndarray):
         glBindBuffer(target, buffer_id)
-        glBufferData(buffer_id, data.nbytes, None, self.usage)
-        glBufferSubData(buffer_id, 0, data.nbytes, data)
+        glBufferData(target, data.nbytes, None, self.usage)
+        glBufferSubData(target, 0, data.nbytes, data)
 
     def draw(self, aspect_ratio: float, world_model_matrix: mat4):
         """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
