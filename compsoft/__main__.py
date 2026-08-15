@@ -1,9 +1,12 @@
 import math
+import os
 from collections import deque
 from pathlib import Path
 
 import glfw
+import OpenGL.GL as GL
 from glm import vec3
+from OpenGL.GL.glget import glGetString
 
 from compsoft.actor import Actor
 from compsoft.camera import Camera
@@ -18,6 +21,13 @@ from compsoft.scene import Scene
 from compsoft.screen_quad import ScreenQuad
 from compsoft.window import Window
 
+# NVIDIA PRIME Offload
+os.environ["__NV_PRIME_RENDER_OFFLOAD"] = "1"
+os.environ["__GLX_VENDOR_LIBRARY_NAME"] = "nvidia"
+
+# AMD / Mesa PRIME
+os.environ["DRI_PRIME"] = "1"
+
 
 class COLORS:
     RED = vec3(1, 0, 0)
@@ -31,6 +41,13 @@ class COLORS:
 def main():
     print("Welcome...")
     window = Window(800, 600, "CompSoft")
+
+    vendor = glGetString(GL.GL_VENDOR)
+    renderer = glGetString(GL.GL_RENDERER)
+    if isinstance(vendor, bytes) and isinstance(renderer, bytes):
+        print(f"Vendor:   {vendor.decode('utf-8')}")
+        print(f"Renderer: {renderer.decode('utf-8')}")
+
     cam = Camera(vec3(4, 4, 3))
     cam.look_at(vec3(0, 0, 0))
     scene = Scene(cam)
