@@ -68,7 +68,9 @@ class Engine:
             self.fb.bind()
             self.scene.render(self.window.aspect_ratio)
             self.fb.unbind()
-            self.sq.render(self.fb.rendered_tex)
+            self.sq.render(
+                self.fb.position_tex, self.fb.normal_tex, self.fb.color_tex
+            )
 
             self.window.swap_buffers()
             self.window.poll_events()

@@ -1,5 +1,9 @@
 #version 330 core
 
+layout(location = 0) out vec3 gPosition; // Color Attach 0 
+layout(location = 1) out vec3 gNormal; // Color Attach 1
+layout(location = 2) out vec4 gAlbedoSpec; // Color Attach 2
+
 struct LightData {
   int type;        // 4 bytes  -> Offset 0. bytes 4-15 are empty
   vec3 position;   // 12 bytes -> Offset 16. 4 last bytes are empty, needs to start in a 16 byte chunk
@@ -25,14 +29,19 @@ in vec3 Position_worldspace;
 in vec3 Normal_worldspace;
 in vec3 EyeDirection_worldspace;
 in mat3 TBN_worldspace;
-
-layout(location = 0) out vec4 color; // Colorattachment0
-
 void main() {
+  vec3 NormalTangentspace = texture(normal, UV).rgb * 2.0 - 1.0;
+
+  gPosition = Position_worldspace;
+  gNormal = normalize(TBN_worldspace * NormalTangentspace);
+  gAlbedoSpec.rgb = texture(albedo, UV).rgb * fragmentColor;
+  gAlbedoSpec.a = .3;
+
+  /*
+
   vec3 mixedColor = texture(albedo, UV).rgb * fragmentColor;
   vec3 MaterialAmbientColor = vec3(0.1) * mixedColor;
   vec3 MaterialSpecularColor = vec3(0.3);
-  vec3 NormalTangentspace = texture(normal, UV).rgb * 2.0 - 1.0;
   vec3 n = normalize(TBN_worldspace * NormalTangentspace);
   vec3 E = normalize(EyeDirection_worldspace);
 
@@ -60,4 +69,5 @@ void main() {
   }
   vec3 final_color = MaterialAmbientColor + total_diffuse + total_specular;
   color = vec4(clamp(final_color, 0.0, 1.0), 1.0);
+  */
 }

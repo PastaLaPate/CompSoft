@@ -9,6 +9,8 @@ from OpenGL.GL import (
     GL_FLOAT,
     GL_STATIC_DRAW,
     GL_TEXTURE0,
+    GL_TEXTURE1,
+    GL_TEXTURE2,
     GL_TEXTURE_2D,
     GL_TRIANGLES,
     glActiveTexture,
@@ -71,15 +73,21 @@ class ScreenQuad:
         glBindVertexArray(0)
         self.shader = Shader(passthrough_vert_path, postprocess_frag_path)
 
-    def render(self, texture_id: int):
+    def render(self, position_tex: int, normal_tex: int, color_tex: int):
         glDisable(GL_DEPTH_TEST)
 
         self.shader.use()
 
         glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, texture_id)
+        glBindTexture(GL_TEXTURE_2D, position_tex)
+        glActiveTexture(GL_TEXTURE1)
+        glBindTexture(GL_TEXTURE_2D, normal_tex)
+        glActiveTexture(GL_TEXTURE2)
+        glBindTexture(GL_TEXTURE_2D, color_tex)
 
-        self.shader.set_uniform_i("renderedTexture", 0)
+        self.shader.set_uniform_i("positionTexture", 0)
+        self.shader.set_uniform_i("normalTexture", 1)
+        self.shader.set_uniform_i("colorTexture", 2)
         self.shader.set_uniform_float("time", float(glfw.get_time() * 10.0))
 
         glBindVertexArray(self.vxt)
