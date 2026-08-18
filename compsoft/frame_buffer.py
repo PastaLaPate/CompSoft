@@ -60,6 +60,7 @@ class FrameBuffer:
 
         self.position_tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.position_tex)
+        # TODO: Store this in a depth comp / depth texture
         # I guess: GL_TEXTURE_2D: target, mipmap level, GPU pixel format, w, h, legacy parameter lol,
         # cpu source format, size, pointer to cpu data
         glTexImage2D(
