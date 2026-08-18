@@ -1,18 +1,17 @@
 import math
 import os
-from pathlib import Path
 
 import OpenGL.GL as GL
 from glm import vec3
 from OpenGL.GL.glget import glGetString
 
-from compsoft.actor import Actor
-from compsoft.components.cube import SimpleCubeComponent
-from compsoft.components.light import PointLight
-from compsoft.components.model_mesh import ModelMeshComponent
-from compsoft.consts import ROOT
-from compsoft.engine import Engine
-from compsoft.material import Material
+from compsoft.core.engine import Engine
+from compsoft.graphics.material import Material
+from compsoft.resources.manager import resources
+from compsoft.scene.actor import Actor
+from compsoft.scene.components.cube import SimpleCubeComponent
+from compsoft.scene.components.light import PointLight
+from compsoft.scene.components.model_mesh import ModelMeshComponent
 
 # NVIDIA PRIME Offload
 os.environ["__NV_PRIME_RENDER_OFFLOAD"] = "1"
@@ -45,9 +44,7 @@ def main():
     scene = engine.scene
     scene.load()
 
-    mat = Material(
-        ROOT / "textures" / "mc_dirt.png",
-    )
+    mat = Material(resources.get_texture_path("mc_dirt.png"))
 
     actor = scene.add_actor(Actor())
     cube = actor.add_component(SimpleCubeComponent(mat))
@@ -57,7 +54,7 @@ def main():
     suzanne = scene.add_actor(Actor())
     suzanne.position = vec3(10, 10, 10)
     suzanne_mesh = suzanne.add_component(
-        ModelMeshComponent(ROOT / "models" / "suzanne.obj", mat)
+        ModelMeshComponent(resources.get_model_path("suzanne.obj"), mat)
     )
     suzanne_mesh.load()
 
@@ -67,11 +64,11 @@ def main():
     light_cube.load()
 
     hq_mat = Material(
-        Path(
-            "/home/alex/Documents/CompositionSoftware/textures/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_albedo.jpeg"
+        resources.get_texture_path(
+            "Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_albedo.jpeg"
         ),
-        Path(
-            "/home/alex/Documents/CompositionSoftware/textures/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_normal.jpeg"
+        resources.get_texture_path(
+            "Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High_4K_normal.jpeg"
         ),
     )
 
@@ -79,8 +76,8 @@ def main():
     hq_actor.position = vec3(0, 5, 0)
     hq_mesh = hq_actor.add_component(
         ModelMeshComponent(
-            Path(
-                "/home/alex/Documents/CompositionSoftware/models/Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High.gltf"
+            resources.get_model_path(
+                "Military_Trenches_Pile_Sandbag_Canvas_01_yd0tae2_High.gltf"
             ),
             hq_mat,
         )

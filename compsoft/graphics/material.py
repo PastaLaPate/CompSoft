@@ -12,17 +12,15 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat4, vec3
 
-from compsoft.consts import ROOT
-from compsoft.shader import Shader
-from compsoft.textures import TextureRegistry
+from compsoft.graphics.shader import Shader
+from compsoft.resources.manager import resources
+from compsoft.resources.textures import TextureRegistry
 
 
 class Material:
     def __init__(self, albedo: Path, normal: Path | None = None) -> None:
-        self.shader = Shader(
-            ROOT / "shaders" / "shaded" / "vertex.glsl",
-            ROOT / "shaders" / "shaded" / "fragment.glsl",
-        )
+        shader_pair = resources.get_shader_path("shaded")
+        self.shader = Shader(shader_pair.vertex, shader_pair.fragment)
         self.light_pos = vec3(10, 10, 10)
 
         self.albedo = TextureRegistry.get_texture(albedo) or -1

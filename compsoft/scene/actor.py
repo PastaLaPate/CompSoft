@@ -6,10 +6,10 @@ from uuid import UUID
 from pyglm import glm
 from pyglm.glm import mat4, vec3
 
-from compsoft.components.component import Component, RenderableComponent
+from compsoft.scene.components.component import Component, RenderableComponent
 
 if TYPE_CHECKING:
-    from compsoft.scene import Scene
+    from compsoft.scene.scene import Scene
 
 
 class Actor:

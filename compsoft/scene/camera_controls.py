@@ -1,7 +1,7 @@
 import glfw
 
-from compsoft.camera import Camera
-from compsoft.window import Window
+from compsoft.core.window import Window
+from compsoft.scene.camera import Camera
 
 
 class CameraControls:

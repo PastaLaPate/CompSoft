@@ -29,7 +29,7 @@ from OpenGL.GL import (
     glVertexAttribPointer,
 )
 
-from compsoft.shader import Shader
+from compsoft.graphics.shader import Shader
 
 
 class ScreenQuad:

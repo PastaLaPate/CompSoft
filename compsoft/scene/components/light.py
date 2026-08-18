@@ -7,10 +7,10 @@ import numpy as np
 import pyglm.glm as glm
 from pyglm.glm import vec3, vec4
 
-from compsoft.components.component import Component
+from compsoft.scene.components.component import Component
 
 if TYPE_CHECKING:
-    from compsoft.scene import Scene
+    from compsoft.scene.scene import Scene
 
 
 class LightType(IntEnum):

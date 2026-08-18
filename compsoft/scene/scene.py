@@ -13,9 +13,9 @@ from OpenGL.GL import (
     glGenBuffers,
 )
 
-from compsoft.actor import Actor
-from compsoft.camera import Camera
-from compsoft.components.light import LightComponent, LightData
+from compsoft.scene.actor import Actor
+from compsoft.scene.camera import Camera
+from compsoft.scene.components.light import LightComponent, LightData
 
 
 class Scene:

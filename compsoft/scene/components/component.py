@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from pyglm.glm import mat4
 
 if TYPE_CHECKING:
-    from compsoft.actor import Actor
-    from compsoft.scene import Scene
+    from compsoft.scene.actor import Actor
+    from compsoft.scene.scene import Scene
 
 
 class Component:

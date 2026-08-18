@@ -26,9 +26,9 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat4, vec2, vec3
 
-from compsoft.components.component import RenderableComponent
-from compsoft.material import Material
-from compsoft.vbo_indexer import index_vbo
+from compsoft.graphics.material import Material
+from compsoft.graphics.vbo_indexer import index_vbo
+from compsoft.scene.components.component import RenderableComponent
 
 
 class SimpleMeshComponent(RenderableComponent):

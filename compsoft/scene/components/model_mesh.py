@@ -3,8 +3,8 @@ from pathlib import Path
 import trimesh
 from glm import vec2, vec3
 
-from compsoft.components.mesh import SimpleMeshComponent
-from compsoft.material import Material
+from compsoft.graphics.material import Material
+from compsoft.scene.components.mesh import SimpleMeshComponent
 
 
 class ModelMeshComponent(SimpleMeshComponent):

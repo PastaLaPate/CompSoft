@@ -1,16 +1,16 @@
 from collections import deque
-from pathlib import Path
 from typing import Callable
 
 import glfw
 from pyglm.glm import vec3
 
-from compsoft.camera import Camera
-from compsoft.camera_controls import CameraControls
-from compsoft.frame_buffer import FrameBuffer
-from compsoft.scene import Scene
-from compsoft.screen_quad import ScreenQuad
-from compsoft.window import Window
+from compsoft.core.window import Window
+from compsoft.graphics.frame_buffer import FrameBuffer
+from compsoft.graphics.screen_quad import ScreenQuad
+from compsoft.resources.manager import resources
+from compsoft.scene.camera import Camera
+from compsoft.scene.camera_controls import CameraControls
+from compsoft.scene.scene import Scene
 
 
 class Engine:
@@ -23,14 +23,8 @@ class Engine:
         self.scene = Scene(self.cam)
         self.cam_controls = CameraControls(self.cam, self.window)
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
-        self.sq = ScreenQuad(
-            Path(
-                "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/vertex.glsl"
-            ),
-            Path(
-                "/home/alex/Documents/CompositionSoftware/shaders/framebuffer/fragment.glsl"
-            ),
-        )
+        sq_shader_pair = resources.get_shader_path("framebuffer")
+        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
 
     def _add_prerender_listener(

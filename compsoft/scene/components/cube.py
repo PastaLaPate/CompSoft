@@ -1,8 +1,8 @@
 from glm import vec2
 from pyglm.glm import vec3
 
-from compsoft.components.mesh import SimpleMeshComponent
-from compsoft.material import Material
+from compsoft.graphics.material import Material
+from compsoft.scene.components.mesh import SimpleMeshComponent
 
 
 class SimpleCubeComponent(SimpleMeshComponent):

@@ -14,7 +14,7 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat3, mat4, vec3
 
-from compsoft.shaders import ShaderRegistry
+from compsoft.resources.shaders import ShaderRegistry
 
 
 class Shader:
