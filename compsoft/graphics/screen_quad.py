@@ -26,8 +26,11 @@ from OpenGL.GL import (
     glEnableVertexAttribArray,
     glGenBuffers,
     glGenVertexArrays,
+    glGetUniformBlockIndex,
+    glUniformBlockBinding,
     glVertexAttribPointer,
 )
+from pyglm.glm import vec3
 
 from compsoft.graphics.shader import Shader
 
@@ -73,10 +76,21 @@ class ScreenQuad:
         glBindVertexArray(0)
         self.shader = Shader(passthrough_vert_path, postprocess_frag_path)
 
-    def render(self, position_tex: int, normal_tex: int, color_tex: int):
+    def bind_shader(self):
         glDisable(GL_DEPTH_TEST)
-
         self.shader.use()
+        block_index = glGetUniformBlockIndex(
+            self.shader.program_id, "LightingBlock"
+        )
+        glUniformBlockBinding(self.shader.program_id, block_index, 0)
+
+    def render(
+        self,
+        position_tex: int,
+        normal_tex: int,
+        color_tex: int,
+        camera_pos: vec3,
+    ):
 
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, position_tex)
@@ -88,6 +102,7 @@ class ScreenQuad:
         self.shader.set_uniform_i("positionTexture", 0)
         self.shader.set_uniform_i("normalTexture", 1)
         self.shader.set_uniform_i("colorTexture", 2)
+        self.shader.set_uniform_vec3("cameraPos", camera_pos)
         self.shader.set_uniform_float("time", float(glfw.get_time() * 10.0))
 
         glBindVertexArray(self.vxt)

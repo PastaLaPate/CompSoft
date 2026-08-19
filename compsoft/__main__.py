@@ -1,5 +1,6 @@
 import math
 import os
+import time
 
 import OpenGL.GL as GL
 from glm import vec3
@@ -32,6 +33,7 @@ class COLORS:
 
 def main():
     print("Welcome...")
+    t = time.time_ns()
 
     engine = Engine()
 
@@ -43,6 +45,8 @@ def main():
 
     scene = engine.scene
     scene.load()
+    scene.camera.pos = vec3(0, 7, 0)
+    scene.camera.look_at(vec3(5, 10, 5))
 
     mat = Material(resources.get_texture_path("mc_dirt.png"))
 
@@ -52,7 +56,8 @@ def main():
     cube.scale = vec3(100, 1, 100)
 
     suzanne = scene.add_actor(Actor())
-    suzanne.position = vec3(10, 10, 10)
+    suzanne.position = vec3(5, 10, 5)
+    suzanne.rotation = vec3(0, 180, 0)
     suzanne_mesh = suzanne.add_component(
         ModelMeshComponent(resources.get_model_path("suzanne.obj"), mat)
     )
@@ -92,5 +97,8 @@ def main():
         light_actor.position = mat.light_pos
 
     engine._add_prerender_listener(tick)
+
+    print(f"Started in {round((time.time_ns() - t) / 1e6)}ms")
+
     engine.start()
     engine.exit()

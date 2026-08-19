@@ -23,7 +23,7 @@ class Engine:
         self.scene = Scene(self.cam)
         self.cam_controls = CameraControls(self.cam, self.window)
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
-        sq_shader_pair = resources.get_shader_path("framebuffer")
+        sq_shader_pair = resources.get_shader_path("lit")
         self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
 
@@ -62,8 +62,13 @@ class Engine:
             self.fb.bind()
             self.scene.render(self.window.aspect_ratio)
             self.fb.unbind()
+            self.scene.upload_light_ubo(self.scene.get_lights())
+            self.sq.bind_shader()
             self.sq.render(
-                self.fb.position_tex, self.fb.normal_tex, self.fb.color_tex
+                self.fb.position_tex,
+                self.fb.normal_tex,
+                self.fb.color_tex,
+                self.scene.camera.pos,
             )
 
             self.window.swap_buffers()

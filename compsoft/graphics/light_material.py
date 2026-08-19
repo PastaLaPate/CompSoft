@@ -6,18 +6,18 @@ from OpenGL.GL import (
     GL_TEXTURE_2D,
     glActiveTexture,
     glBindTexture,
-    glUseProgram,
 )
 from pyglm.glm import mat4, vec3
 
+from compsoft.graphics.material import Material
 from compsoft.graphics.shader import Shader
 from compsoft.resources.manager import resources
 from compsoft.resources.textures import TextureRegistry
 
 
-class Material:
+class LightMaterial(Material):
     def __init__(self, albedo: Path, normal: Path | None = None) -> None:
-        shader_pair = resources.get_shader_path("gbuffer")
+        shader_pair = resources.get_shader_path("light")
         self.shader = Shader(shader_pair.vertex, shader_pair.fragment)
 
         self.albedo = TextureRegistry.get_texture(albedo) or -1
@@ -26,16 +26,6 @@ class Material:
             if normal
             else TextureRegistry.get_default_normal() or -1
         )
-
-    def bind_properties(self):
-        glUseProgram(self.shader.program_id)
-
-        # block_index = glGetUniformBlockIndex(
-        #    self.shader.program_id, "LightingBlock"
-        # )
-        # glUniformBlockBinding(self.shader.program_id, block_index, 0)
-        self.shader.set_uniform_i("albedo", 0)
-        self.shader.set_uniform_i("normal", 1)
 
     def use(
         self,

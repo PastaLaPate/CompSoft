@@ -5,11 +5,13 @@ from pyglm.glm import vec3
 
 
 class Camera:
-    def __init__(self, pos: vec3 | None = None, rot: vec3 | None = None) -> None:
+    def __init__(
+        self, pos: vec3 | None = None, rot: vec3 | None = None
+    ) -> None:
         self._pos = pos or vec3(0, 0, 0)
         self._rot = rot or vec3(0, 0, 0)
         self._fov = 90  # in degrees
-        self._near_clipping_plane = 0.1
+        self._near_clipping_plane = 0.01
         self._far_clipping_plane = 300.0
 
         self._cached_view_matrix = None
@@ -138,6 +140,6 @@ class Camera:
         return glm.perspective(
             glm.radians(self.fov),
             aspect_ratio,  # Aspect Ratio
-            0.1,  # Near clipping plane. Keep as big as possible, or you'll get precision issues.
-            100,  # Far clipping plane. Keep as little as possible
+            self.near_clipping_plane,  # Near clipping plane. Keep as big as possible, or you'll get precision issues.
+            self.far_clipping_plane,  # Far clipping plane. Keep as little as possible
         )
