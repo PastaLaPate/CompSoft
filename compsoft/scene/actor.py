@@ -6,6 +6,7 @@ from uuid import UUID
 from pyglm import glm
 from pyglm.glm import mat4, vec3
 
+from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.components.component import Component, RenderableComponent
 
 if TYPE_CHECKING:
@@ -181,11 +182,17 @@ class Actor:
 
         return local_matrix
 
-    def render(self, aspect_ratio: float, parent_matrix: glm.mat4):
+    def render(
+        self,
+        aspect_ratio: float,
+        parent_matrix: glm.mat4,
+        render_pass: RenderPass,
+    ):
         world_model_matrix = cast(
             glm.mat4, parent_matrix * self.compute_transform_matrix()
         )
         for r_comp in self.get_components_by_type(RenderableComponent):
-            r_comp.draw(aspect_ratio, world_model_matrix)
+            if render_pass == r_comp.RENDER_PASS:
+                r_comp.draw(aspect_ratio, world_model_matrix)
         for child in self.children:
-            child.render(aspect_ratio, world_model_matrix)
+            child.render(aspect_ratio, world_model_matrix, render_pass)

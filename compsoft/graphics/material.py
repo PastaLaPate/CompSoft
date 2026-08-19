@@ -30,10 +30,6 @@ class Material:
     def bind_properties(self):
         glUseProgram(self.shader.program_id)
 
-        # block_index = glGetUniformBlockIndex(
-        #    self.shader.program_id, "LightingBlock"
-        # )
-        # glUniformBlockBinding(self.shader.program_id, block_index, 0)
         self.shader.set_uniform_i("albedo", 0)
         self.shader.set_uniform_i("normal", 1)
 

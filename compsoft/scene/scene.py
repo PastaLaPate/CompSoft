@@ -13,6 +13,7 @@ from OpenGL.GL import (
     glGenBuffers,
 )
 
+from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
 from compsoft.scene.components.light import LightComponent, LightData
@@ -101,6 +102,6 @@ class Scene:
         """O(1) fetch for the shader loop. No tree traversal required."""
         return [light.get_data() for light in self.active_lights]
 
-    def render(self, aspect_ratio: float):
+    def render(self, aspect_ratio: float, render_pass: RenderPass):
         for actor in self.root_actors:
-            actor.render(aspect_ratio, mat4())  # pass identity
+            actor.render(aspect_ratio, mat4(), render_pass)  # pass identity

@@ -7,6 +7,7 @@ from glm import vec3
 from OpenGL.GL.glget import glGetString
 
 from compsoft.core.engine import Engine
+from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
 from compsoft.resources.manager import resources
 from compsoft.scene.actor import Actor
@@ -64,7 +65,11 @@ def main():
     suzanne_mesh.load()
 
     light_actor = scene.add_actor(Actor())
-    light_cube = light_actor.add_component(SimpleCubeComponent(mat))
+    light_cube = light_actor.add_component(
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
+    )
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
 
@@ -91,10 +96,9 @@ def main():
     hq_mesh.load()
 
     def tick(t: float, dt: float):
-        mat.light_pos = vec3(
+        light_actor.position = vec3(
             math.cos(math.radians(t)) * 10, 10, math.sin(math.radians(t)) * 10
         )
-        light_actor.position = mat.light_pos
 
     engine._add_prerender_listener(tick)
 

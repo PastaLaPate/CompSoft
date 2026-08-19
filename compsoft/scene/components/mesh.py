@@ -26,7 +26,9 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat4, vec2, vec3
 
+from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
+from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.vbo_indexer import index_vbo
 from compsoft.scene.components.component import RenderableComponent
 
@@ -96,6 +98,11 @@ class SimpleMeshComponent(RenderableComponent):
 
         self.usage: Constant = (
             GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
+        )
+        self.RENDER_PASS = (
+            RenderPass.FORWARD
+            if isinstance(material, LightMaterial)
+            else RenderPass.DEFERRED
         )
 
         self.compute_normals()

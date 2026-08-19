@@ -7,11 +7,7 @@ uniform sampler2D normal;
 
 in vec2 UV;
 in vec3 fragmentColor;
-in vec3 Position_worldspace;
-in vec3 Normal_worldspace;
-in vec3 EyeDirection_worldspace;
-in mat3 TBN_worldspace;
 
 void main() {
-  color = texture(albedo, UV) * fragmentColor;
+  color = texture(albedo, UV).rgb * fragmentColor;
 }

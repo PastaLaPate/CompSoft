@@ -6,6 +6,7 @@ from pyglm.glm import vec3
 
 from compsoft.core.window import Window
 from compsoft.graphics.frame_buffer import FrameBuffer
+from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.resources.manager import resources
 from compsoft.scene.camera import Camera
@@ -60,7 +61,7 @@ class Engine:
                 for listener in self.prerender_listeners
             ]
             self.fb.bind()
-            self.scene.render(self.window.aspect_ratio)
+            self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
             self.fb.unbind()
             self.scene.upload_light_ubo(self.scene.get_lights())
             self.sq.bind_shader()
@@ -70,6 +71,7 @@ class Engine:
                 self.fb.color_tex,
                 self.scene.camera.pos,
             )
+            self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
 
             self.window.swap_buffers()
             self.window.poll_events()

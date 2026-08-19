@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 from pyglm.glm import mat4
 
+from compsoft.graphics.render_pass import RenderPass
+
 if TYPE_CHECKING:
     from compsoft.scene.actor import Actor
     from compsoft.scene.scene import Scene
@@ -32,6 +34,8 @@ class Component:
 
 
 class RenderableComponent(ABC, Component):
+    RENDER_PASS: RenderPass = RenderPass.DEFERRED
+
     @abstractmethod
     def load(self): ...
 
