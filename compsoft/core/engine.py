@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Callable
+from collections.abc import Callable
 
 import glfw
 from pyglm.glm import vec3
@@ -28,9 +28,7 @@ class Engine:
         self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
 
-    def _add_prerender_listener(
-        self, listener: Callable[[float, float], None]
-    ):
+    def _add_prerender_listener(self, listener: Callable[[float, float], None]):
         self.prerender_listeners.append(listener)
 
     def start(self) -> None:
@@ -56,10 +54,7 @@ class Engine:
             self.cam_controls.update(self.window.dt)
 
             t += self.window.dt * 100
-            [
-                listener(t, self.window.dt)
-                for listener in self.prerender_listeners
-            ]
+            [listener(t, self.window.dt) for listener in self.prerender_listeners]
             self.fb.bind()
             self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
             self.fb.unbind()

@@ -24,13 +24,11 @@ class Component:
     def parent(self, parent: Actor | None):
         self._parent = parent
 
-    def on_enter_scene(self, scene: "Scene"):
+    def on_enter_scene(self, scene: Scene):
         """Triggered when the parent actor enters a scene."""
-        pass
 
     def on_exit_scene(self):
         """Triggered when the parent actor leaves a scene."""
-        pass
 
 
 class RenderableComponent(ABC, Component):

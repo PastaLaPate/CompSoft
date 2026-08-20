@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 
 from pyglm.glm import vec2, vec3
 
@@ -13,8 +12,8 @@ class PackedVertex:
 
 
 def get_similar_vertex_index_fast(
-    packed: PackedVertex, vertex_to_out_index: Dict[PackedVertex, int]
-) -> Tuple[bool, Optional[int]]:
+    packed: PackedVertex, vertex_to_out_index: dict[PackedVertex, int]
+) -> tuple[bool, int | None]:
     """
     Looks up a vertex in the dictionary.
     Returns a tuple: (True, index) if found, or (False, None) if not.
@@ -32,7 +31,7 @@ def index_vbo(
     normals: list[vec3],
     colors: list[vec3],
     tangents: list[vec3],
-) -> Tuple[
+) -> tuple[
     list[int],
     list[vec3],
     list[vec2],
@@ -41,7 +40,7 @@ def index_vbo(
     list[vec3],
     list[int],
 ]:  # indices, vertices, uvs, normals, colors, tangents, reverse_lookup
-    vertex_to_out_index: Dict[PackedVertex, int] = {}
+    vertex_to_out_index: dict[PackedVertex, int] = {}
 
     indices: list[int] = []
     out_vertices: list[vec3] = []
@@ -52,10 +51,8 @@ def index_vbo(
     reverse_lookup: list[int] = []
 
     for i in range(len(vertices)):
-        packed_vertex = PackedVertex(
-            vertices[i], uvs[i], normals[i], colors[i]
-        )
-        found, index = get_similar_vertex_index_fast(
+        packed_vertex = PackedVertex(vertices[i], uvs[i], normals[i], colors[i])
+        found, _index = get_similar_vertex_index_fast(
             packed_vertex, vertex_to_out_index
         )
         if found:

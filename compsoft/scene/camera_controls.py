@@ -22,14 +22,10 @@ class CameraControls:
         glfw.set_scroll_callback(self.window.window, self.scroll_callback)
 
     def enable_cursor(self):
-        glfw.set_input_mode(
-            self.window.window, glfw.CURSOR, glfw.CURSOR_NORMAL
-        )
+        glfw.set_input_mode(self.window.window, glfw.CURSOR, glfw.CURSOR_NORMAL)
 
     def disable_cursor(self):
-        glfw.set_input_mode(
-            self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED
-        )
+        glfw.set_input_mode(self.window.window, glfw.CURSOR, glfw.CURSOR_DISABLED)
 
     def scroll_callback(self, window, x_offset: float, y_offset: float):
         ctrl_pressed = self.window.key_pressed(
@@ -37,9 +33,7 @@ class CameraControls:
         ) or self.window.key_pressed(glfw.KEY_RIGHT_CONTROL)
 
         if ctrl_pressed:
-            self.camera.fov = max(
-                10, min(120, self.camera.fov - int(y_offset) * 3)
-            )
+            self.camera.fov = max(10, min(120, self.camera.fov - int(y_offset) * 3))
 
             print(
                 f"\r\033[KCamera FOV: {round(self.camera.fov, 1)}°",

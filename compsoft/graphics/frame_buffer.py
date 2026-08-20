@@ -237,8 +237,6 @@ class FrameBuffer:
         if self.fbo:
             glDeleteFramebuffers(1, [self.fbo])
         if self.position_tex and self.normal_tex and self.color_tex:
-            glDeleteTextures(
-                3, [self.position_tex, self.normal_tex, self.color_tex]
-            )
+            glDeleteTextures(3, [self.position_tex, self.normal_tex, self.color_tex])
         if self.drb:
             glDeleteRenderbuffers(1, [self.drb])

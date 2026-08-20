@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pyglm.glm as glm
+from pyglm import glm
 from pyglm.glm import vec3, vec4
 
 from compsoft.scene.components.component import Component
@@ -109,14 +109,14 @@ class LightComponent(ABC, Component):
 class PointLight(LightComponent):
     def __init__(
         self,
-        color: vec3 = vec3(1, 1, 1),
+        color: vec3 | None = None,
         intensity: float = 1,
-        position: vec3 = vec3(0, 0, 0),
+        position: vec3 | None = None,
     ):
         super().__init__()
-        self.color = color
+        self.color = color or vec3(1, 1, 1)
         self.intensity = intensity
-        self.position = position
+        self.position = position or vec3(0, 0, 0)
 
     def get_data(self) -> LightData:
         pos = self.position
@@ -136,10 +136,10 @@ class PointLight(LightComponent):
 class DirectionalLight(LightComponent):
     def __init__(
         self,
-        direction: vec3 = vec3(0, 90, 0),
-        color: vec3 = vec3(1, 1, 1),
+        direction: vec3 | None = None,
+        color: vec3 | None = None,
         intensity: float = 1,
-        position: vec3 = vec3(0, 0, 0),
+        position: vec3 | None = None,
     ):
         """Initiates a directional light
 
@@ -150,10 +150,10 @@ class DirectionalLight(LightComponent):
             position (vec3, optional): position relative to parent actor. Defaults to vec3(0, 0, 0).
         """
         super().__init__()
-        self.direction = direction
-        self.color = color
+        self.direction = direction or vec3(0, 90, 0)
+        self.color = color or vec3(1, 1, 1)
         self.intensity = intensity
-        self.position = position
+        self.position = position or vec3(0, 0, 0)
 
     def get_data(self) -> LightData:
         pos = self.position
@@ -166,9 +166,7 @@ class DirectionalLight(LightComponent):
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
             local_forward = vec3(
                 wrld_matrix
-                * glm.vec4(
-                    local_forward.x, local_forward.y, local_forward.z, 0.0
-                )
+                * glm.vec4(local_forward.x, local_forward.y, local_forward.z, 0.0)
             )
 
         return LightData(
@@ -184,17 +182,17 @@ class DirectionalLight(LightComponent):
 class SpotLight(LightComponent):
     def __init__(
         self,
-        direction: vec3 = vec3(0, 90, 0),
+        direction: vec3 | None = None,
         angle: float = 30,
-        color: vec3 = vec3(1, 1, 1),
+        color: vec3 | None = None,
         intensity: float = 1,
-        position: vec3 = vec3(0, 0, 0),
+        position: vec3 | None = None,
     ):
         super().__init__()
-        self.direction = direction
-        self.color = color
+        self.direction = direction or vec3(0, 90, 0)
+        self.color = color or vec3(1, 1, 1)
         self.intensity = intensity
-        self.position = position
+        self.position = position or vec3(0, 0, 0)
         self.cutoff = math.cos(math.radians(angle))
 
     def get_data(self) -> LightData:

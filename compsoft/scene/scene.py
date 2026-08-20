@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 import numpy as np
 from glm import mat4
@@ -59,7 +58,7 @@ class Scene:
         )
         glBindBuffer(GL_UNIFORM_BUFFER, 0)
 
-    def add_actor(self, actor: Actor, parent: Optional[Actor] = None) -> Actor:
+    def add_actor(self, actor: Actor, parent: Actor | None = None) -> Actor:
         if parent:
             parent.add_child(actor)
         else:

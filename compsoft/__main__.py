@@ -2,8 +2,8 @@ import math
 import os
 import time
 
-import OpenGL.GL as GL
 from glm import vec3
+from OpenGL import GL
 from OpenGL.GL.glget import glGetString
 
 from compsoft.core.engine import Engine
@@ -66,9 +66,7 @@ def main():
 
     light_actor = scene.add_actor(Actor())
     light_cube = light_actor.add_component(
-        SimpleCubeComponent(
-            LightMaterial(resources.get_texture_path("mc_dirt.png"))
-        )
+        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
     )
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()

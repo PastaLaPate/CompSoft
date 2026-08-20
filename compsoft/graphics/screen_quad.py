@@ -79,9 +79,7 @@ class ScreenQuad:
     def bind_shader(self):
         glDisable(GL_DEPTH_TEST)
         self.shader.use()
-        block_index = glGetUniformBlockIndex(
-            self.shader.program_id, "LightingBlock"
-        )
+        block_index = glGetUniformBlockIndex(self.shader.program_id, "LightingBlock")
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
 
     def render(

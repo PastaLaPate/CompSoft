@@ -34,7 +34,7 @@ class Actor:
 
     # Children and scene management
 
-    def add_child(self, child: "Actor") -> None:
+    def add_child(self, child: Actor) -> None:
         if child.parent is not None:  # Orphan if had already parent
             child.parent.remove_child(child)
 
@@ -44,7 +44,7 @@ class Actor:
         if self.scene is not None:
             child.set_scene(self.scene)
 
-    def remove_child(self, child: "Actor") -> None:
+    def remove_child(self, child: Actor) -> None:
         if child in self.children:
             self.children.remove(child)
             child.parent = None
@@ -99,9 +99,7 @@ class Actor:
         for component in self.components:
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> T | None:
+    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -116,9 +114,7 @@ class Actor:
                 return comp
         return None
 
-    def get_components_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> list[T]:
+    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
         comps = []
         for comp in self.components:
             if isinstance(comp, component_cls):
@@ -133,7 +129,7 @@ class Actor:
 
     @position.setter
     def position(self, x: vec3):
-        if not x == self._position:
+        if x != self._position:
             self.dirty_matrix = True
         self._position = x
 
@@ -143,7 +139,7 @@ class Actor:
 
     @scale.setter
     def scale(self, x: vec3):
-        if not x == self._scale:
+        if x != self._scale:
             self.dirty_matrix = True
         self._scale = x
 
@@ -153,7 +149,7 @@ class Actor:
 
     @rotation.setter
     def rotation(self, x: vec3):
-        if not x == self._rotation:
+        if x != self._rotation:
             self.dirty_matrix = True
         self._rotation = x
 

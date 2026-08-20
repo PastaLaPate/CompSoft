@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 import glfw
 from OpenGL.GL import (
@@ -103,21 +103,14 @@ class Window:
         return glfw.get_key(self.window, key) == glfw.PRESS
 
     def rmb_pressed(self) -> bool:
-        return (
-            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT)
-            == glfw.PRESS
-        )
+        return glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS
 
     def lmb_pressed(self) -> bool:
-        return (
-            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_LEFT)
-            == glfw.PRESS
-        )
+        return glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS
 
     def mmb_pressed(self) -> bool:
         return (
-            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_MIDDLE)
-            == glfw.PRESS
+            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_MIDDLE) == glfw.PRESS
         )
 
     def exit(self):

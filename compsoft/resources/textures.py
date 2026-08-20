@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 from OpenGL.GL import (
     GL_LINEAR,
@@ -22,7 +23,7 @@ from PIL.Image import Transpose
 
 
 class TextureRegistry:
-    _cache: dict[str, int] = {}  # texture_path: texture_id
+    _cache: ClassVar[dict[str, int]] = {}  # texture_path: texture_id
     _default_normal: int = -1
 
     @classmethod
@@ -96,9 +97,7 @@ class TextureRegistry:
         )
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexParameteri(
-            GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR
-        )
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
         glGenerateMipmap(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, 0)
         return txt_id
