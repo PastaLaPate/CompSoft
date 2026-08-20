@@ -6,10 +6,12 @@ from OpenGL.GL import (
     GL_DEPTH_ATTACHMENT,
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_COMPONENT,
+    GL_DRAW_FRAMEBUFFER,
     GL_FLOAT,
     GL_FRAMEBUFFER,
     GL_FRAMEBUFFER_COMPLETE,
     GL_NEAREST,
+    GL_READ_FRAMEBUFFER,
     GL_RENDERBUFFER,
     GL_RGBA,
     GL_RGBA16F,
@@ -20,6 +22,7 @@ from OpenGL.GL import (
     glBindFramebuffer,
     glBindRenderbuffer,
     glBindTexture,
+    glBlitFramebuffer,
     glCheckFramebufferStatus,
     glClear,
     glDeleteFramebuffers,
@@ -211,7 +214,23 @@ class FrameBuffer:
         glClear(GL_DEPTH_BUFFER_BIT)
 
     def unbind(self) -> None:
+        # Keep depth buffer
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, self.fbo)
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)
+        glBlitFramebuffer(
+            0,
+            0,
+            self.width,
+            self.height,
+            0,
+            0,
+            self.width,
+            self.height,
+            GL_DEPTH_BUFFER_BIT,
+            GL_NEAREST,
+        )
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
         glViewport(0, 0, self.width, self.height)
 
     def destroy(self):
