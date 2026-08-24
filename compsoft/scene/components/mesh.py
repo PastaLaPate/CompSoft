@@ -24,7 +24,7 @@ from OpenGL.GL import (
     glVertexAttribPointer,
 )
 from pyglm import glm
-from pyglm.glm import mat4, vec2, vec3
+from pyglm.glm import mat4, vec2, vec3, vec4
 
 from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
@@ -75,9 +75,17 @@ class SimpleMeshComponent(RenderableComponent):
         self._scale = vec3(1, 1, 1)
         self._rotation = vec3(0, 0, 0)
 
+        self._aabb: tuple[vec3, vec3] = (vec3(0, 0, 0), vec3(1, 1, 1))
+        self._transformed_aabb: tuple[vec3, vec3] = (
+            vec3(0, 0, 0),
+            vec3(1, 1, 1),
+        )
+        self._dirty_transformed_aabb = False
+
         self._dirty_flags = self.DIRTY_NONE
         self.dirty_matrix = True
-        self.t_matrix = None
+        self.transform_matrix = None
+        self.world_space_matrix = None
 
         # OpenGL IDs
         self.vao = 0
@@ -96,7 +104,9 @@ class SimpleMeshComponent(RenderableComponent):
             int
         ] = []  # VBO Index -> idx of first corner of corresponding triangle, get the color of first triangle of index n self._colors[self._reverse_vbo_index_lookup[n]], as its color is the same as the other (bcs it got merged) all vertices who use index n have this color
 
-        self.usage: Constant = GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
+        self.usage: Constant = (
+            GL_DYNAMIC_DRAW if self.dynamic else GL_STATIC_DRAW
+        )
         self.RENDER_PASS = (
             RenderPass.FORWARD
             if isinstance(material, LightMaterial)
@@ -176,6 +186,44 @@ class SimpleMeshComponent(RenderableComponent):
         if x != self._rotation:
             self.dirty_matrix = True
         self._rotation = x
+
+    def get_bounding_box(self) -> tuple[vec3, vec3]:
+        """Get the component space aabb. Use get_transformed_bounding_box for world space.
+
+        Returns:
+            tuple[vec3, vec3]: Min vertex, Max vertex
+        """
+        return self._aabb
+
+    def get_transformed_bounding_box(self) -> tuple[vec3, vec3]:
+        if not self._dirty_transformed_aabb:
+            return self._transformed_aabb
+        self._dirty_transformed_aabb = False
+        center_point = (self._aabb[0] + self._aabb[1]) * 0.5
+        half_size = center_point - self._aabb[0]
+
+        world_space_matrix: mat4 = cast(
+            mat4, self.world_space_matrix * self.get_transform_matrix()
+        )  # world_space_matrix is accumulated from parents without own transform
+
+        new_center = vec3(
+            world_space_matrix
+            * vec4(center_point.x, center_point.y, center_point.z, 1.0)
+        )
+        new_dir = vec3(
+            abs(world_space_matrix[0][0] * half_size.x)
+            + abs(world_space_matrix[1][0] * half_size.y)
+            + abs(world_space_matrix[2][0] * half_size.z),
+            abs(world_space_matrix[0][1] * half_size.x)
+            + abs(world_space_matrix[1][1] * half_size.y)
+            + abs(world_space_matrix[2][1] * half_size.z),
+            abs(world_space_matrix[0][2] * half_size.x)
+            + abs(world_space_matrix[1][2] * half_size.y)
+            + abs(world_space_matrix[2][2] * half_size.z),
+        )
+
+        self._transformed_aabb = (new_center - new_dir, new_center + new_dir)
+        return self._transformed_aabb
 
     def update(self):
         pass
@@ -274,7 +322,9 @@ class SimpleMeshComponent(RenderableComponent):
 
             if abs(det) > 1e-6:
                 r = 1.0 / det
-                tangent = (delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y) * r
+                tangent = (
+                    delta_pos_1 * delta_uv_2.y - delta_pos_2 * delta_uv_1.y
+                ) * r
             else:
                 tangent = vec3(1.0, 0.0, 0.0)
 
@@ -290,9 +340,20 @@ class SimpleMeshComponent(RenderableComponent):
 
         self._tangents = tangents
 
+    def compute_aabb(self, vertices: list[vec3]) -> None:
+        mi: vec3 = vertices[0]
+        ma: vec3 = vertices[0]
+
+        for v in vertices:
+            # ignore for overloads
+            mi: vec3 = glm.min(mi, v)  # type: ignore
+            ma: vec3 = glm.max(ma, v)  # type: ignore
+
+        self._aabb = (mi, ma)
+
     def get_transform_matrix(self) -> glm.mat4x4:
-        if self.t_matrix is not None and not self.dirty_matrix:
-            return self.t_matrix
+        if self.transform_matrix is not None and not self.dirty_matrix:
+            return self.transform_matrix
 
         identity = glm.mat4(1.0)
 
@@ -302,15 +363,15 @@ class SimpleMeshComponent(RenderableComponent):
         translate: glm.mat4x4 = glm.translate(identity, self.position)
 
         m = cast(glm.mat4x4, translate * rot * scale)
-        self.t_matrix = m
+        self.transform_matrix = m
         self.dirty_matrix = False
         return m
 
     def load(self):
         """Loads all of the meshes info into VRAM."""
-        if len(self.triangles) != len(self.uvs) or (len(self.triangles) * 3) != len(
-            self._colors
-        ):
+        if len(self.triangles) != len(self.uvs) or (
+            len(self.triangles) * 3
+        ) != len(self._colors):
             raise ValueError(
                 f"Mesh data mismatch! Triangles: {len(self.triangles)}, "
                 f"UVs: {len(self.uvs)}, Vertex Colors: {len(self._colors)}"
@@ -337,6 +398,8 @@ class SimpleMeshComponent(RenderableComponent):
         self._indexed_vertices = vertices
         self._reverse_vbo_index_lookup = reverse_vbo_index_lookup
 
+        self.compute_aabb(self._indexed_vertices)  # Avoids duplicated vertices
+
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
 
@@ -351,7 +414,9 @@ class SimpleMeshComponent(RenderableComponent):
         self._sync_buffer(self.ebo, GL_ELEMENT_ARRAY_BUFFER, index_buffer_data)
 
         vertex_buffer_data = self._pack(vertices)
-        self._sync_buffer(self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data)
+        self._sync_buffer(
+            self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
+        )
 
         color_buffer_data = self._pack(colors)
         self._sync_buffer(self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data)
@@ -360,10 +425,14 @@ class SimpleMeshComponent(RenderableComponent):
         self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
 
         normals_buffer_data = self._pack(normals)
-        self._sync_buffer(self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data)
+        self._sync_buffer(
+            self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
+        )
 
         tangents_buffer_data = self._pack(tangents)
-        self._sync_buffer(self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data)
+        self._sync_buffer(
+            self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
+        )
 
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo_vertices)
         glEnableVertexAttribArray(0)
@@ -396,9 +465,9 @@ class SimpleMeshComponent(RenderableComponent):
                 "Warning: Attempted to update a static mesh. This can cause significant performance drop if done too frequently."
             )
 
-        if len(self.triangles) != len(self.uvs) or (len(self.triangles) * 3) != len(
-            self._colors
-        ):
+        if len(self.triangles) != len(self.uvs) or (
+            len(self.triangles) * 3
+        ) != len(self._colors):
             raise ValueError(
                 f"Mesh data mismatch! Triangles: {len(self.triangles)}, "
                 f"UVs: {len(self.uvs)}, Vertex Colors: {len(self._colors)}"
@@ -428,23 +497,37 @@ class SimpleMeshComponent(RenderableComponent):
             self._indexed_vertices = vertices
             self._reverse_vbo_index_lookup = reverse_vbo_index_lookup
 
+            self.compute_aabb(
+                self._indexed_vertices
+            )  # Avoids duplicated vertices
+
             index_buffer_data = np.array(indices, dtype=np.uint32)
-            self._sync_buffer(self.ebo, GL_ELEMENT_ARRAY_BUFFER, index_buffer_data)
+            self._sync_buffer(
+                self.ebo, GL_ELEMENT_ARRAY_BUFFER, index_buffer_data
+            )
 
             vertex_buffer_data = self._pack(vertices)
-            self._sync_buffer(self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data)
+            self._sync_buffer(
+                self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
+            )
 
             color_buffer_data = self._pack(colors)
-            self._sync_buffer(self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data)
+            self._sync_buffer(
+                self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data
+            )
 
             uv_buffer_data = self._pack(uvs)
             self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
 
             normals_buffer_data = self._pack(normals)
-            self._sync_buffer(self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data)
+            self._sync_buffer(
+                self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
+            )
 
             tangents_buffer_data = self._pack(tangents)
-            self._sync_buffer(self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data)
+            self._sync_buffer(
+                self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
+            )
 
             self._dirty_flags = self.DIRTY_NONE  # Because by setting topology we also sent other variables (assuming they must have been changed too)
             return
@@ -453,36 +536,50 @@ class SimpleMeshComponent(RenderableComponent):
             # No topology change, only update vertices, normals & tangents
             raw_vertices = [vertice for t in self._triangles for vertice in t]
             vertices = [
-                raw_vertices[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
+                raw_vertices[raw_idx]
+                for raw_idx in self._reverse_vbo_index_lookup
             ]
             normals = [
-                self._normals[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
+                self._normals[raw_idx]
+                for raw_idx in self._reverse_vbo_index_lookup
             ]
             tangents = [
-                self._tangents[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
+                self._tangents[raw_idx]
+                for raw_idx in self._reverse_vbo_index_lookup
             ]
             self._indexed_vertices = vertices
 
             vertex_buffer_data = self._pack(vertices)
-            self._sync_buffer(self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data)
+            self._sync_buffer(
+                self.vbo_vertices, GL_ARRAY_BUFFER, vertex_buffer_data
+            )
 
             normals_buffer_data = self._pack(normals)
-            self._sync_buffer(self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data)
+            self._sync_buffer(
+                self.vbo_normals, GL_ARRAY_BUFFER, normals_buffer_data
+            )
 
             tangents_buffer_data = self._pack(tangents)
-            self._sync_buffer(self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data)
+            self._sync_buffer(
+                self.vbo_tangents, GL_ARRAY_BUFFER, tangents_buffer_data
+            )
 
         if self._dirty_flags & self.DIRTY_COLORS:
             colors = [
-                self._colors[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
+                self._colors[raw_idx]
+                for raw_idx in self._reverse_vbo_index_lookup
             ]
 
             color_buffer_data = self._pack(colors)
-            self._sync_buffer(self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data)
+            self._sync_buffer(
+                self.vbo_colors, GL_ARRAY_BUFFER, color_buffer_data
+            )
 
         if self._dirty_flags & self.DIRTY_UVS:
             raw_uvs = [uv for uvs in self._uvs for uv in uvs]
-            uvs = [raw_uvs[raw_idx] for raw_idx in self._reverse_vbo_index_lookup]
+            uvs = [
+                raw_uvs[raw_idx] for raw_idx in self._reverse_vbo_index_lookup
+            ]
 
             uv_buffer_data = self._pack(uvs)
             self._sync_buffer(self.vbo_uvs, GL_ARRAY_BUFFER, uv_buffer_data)
@@ -501,7 +598,11 @@ class SimpleMeshComponent(RenderableComponent):
             )
         else:
             return np.array(
-                [v for vec in cast(list[vec3], list_) for v in (vec.x, vec.y, vec.z)],
+                [
+                    v
+                    for vec in cast(list[vec3], list_)
+                    for v in (vec.x, vec.y, vec.z)
+                ],
                 dtype=np.float32,
             )
 
@@ -511,9 +612,22 @@ class SimpleMeshComponent(RenderableComponent):
         glBufferSubData(target, 0, data.nbytes, data)
 
     def draw(self, aspect_ratio: float, world_model_matrix: mat4):
-        """Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix"""
-        if self.vao == 0 or self.ebo == 0 or not self.parent or not self.parent.scene:
+        """
+        Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix.
+        world_model_matrix is the accumulated transform matrice across the tree
+        """
+        if (
+            self.vao == 0
+            or self.ebo == 0
+            or not self.parent
+            or not self.parent.scene
+        ):
             return  # Prevent drawing before load() is called
+
+        self._dirty_transformed_aabb = (
+            self.world_space_matrix == world_model_matrix
+        )
+        self.world_space_matrix = world_model_matrix
 
         world_model_matrix = cast(
             mat4, world_model_matrix * self.get_transform_matrix()
