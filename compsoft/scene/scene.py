@@ -1,4 +1,5 @@
 import uuid
+from typing import cast
 
 import numpy as np
 from glm import mat4
@@ -12,6 +13,7 @@ from OpenGL.GL import (
     glGenBuffers,
 )
 
+from compsoft.core.debug import Debug
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
@@ -27,6 +29,8 @@ class Scene:
         self.active_lights: list[LightComponent] = []
         self.lights_ubo_id = -1
 
+        self.debug = Debug()
+
     def load(self):
         self.lights_ubo_id = glGenBuffers(1)
         glBindBuffer(GL_UNIFORM_BUFFER, self.lights_ubo_id)
@@ -40,6 +44,8 @@ class Scene:
         glBindBuffer(GL_UNIFORM_BUFFER, 0)
 
         glBindBufferBase(GL_UNIFORM_BUFFER, 0, self.lights_ubo_id)
+
+        self.debug.load()
 
     def upload_light_ubo(self, lights: list[LightData]):
         upload_data = np.zeros(1, dtype=LightData.BLOCK_DTYPE)
@@ -104,3 +110,13 @@ class Scene:
     def render(self, aspect_ratio: float, render_pass: RenderPass):
         for actor in self.root_actors:
             actor.render(aspect_ratio, mat4(), render_pass)  # pass identity
+        if render_pass == RenderPass.FORWARD:
+            self.debug.draw(
+                cast(
+                    mat4,
+                    self.camera.get_projection_matrix(aspect_ratio)
+                    * self.camera.get_view_matrix(),
+                )
+            )
+
+            self.debug.clear()

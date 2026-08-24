@@ -165,6 +165,7 @@ class SimpleMeshComponent(RenderableComponent):
     def position(self, x: vec3):
         if x != self._position:
             self.dirty_matrix = True
+            self._dirty_transformed_aabb = True
         self._position = x
 
     @property
@@ -175,6 +176,7 @@ class SimpleMeshComponent(RenderableComponent):
     def scale(self, x: vec3):
         if x != self._scale:
             self.dirty_matrix = True
+            self._dirty_transformed_aabb = True
         self._scale = x
 
     @property
@@ -185,6 +187,7 @@ class SimpleMeshComponent(RenderableComponent):
     def rotation(self, x: vec3):
         if x != self._rotation:
             self.dirty_matrix = True
+            self._dirty_transformed_aabb = True
         self._rotation = x
 
     def get_bounding_box(self) -> tuple[vec3, vec3]:
@@ -625,7 +628,7 @@ class SimpleMeshComponent(RenderableComponent):
             return  # Prevent drawing before load() is called
 
         self._dirty_transformed_aabb = (
-            self.world_space_matrix == world_model_matrix
+            self.world_space_matrix != world_model_matrix
         )
         self.world_space_matrix = world_model_matrix
 
@@ -652,6 +655,10 @@ class SimpleMeshComponent(RenderableComponent):
             normal_matrix,
             self.parent.scene.camera.pos,
         )
+
+        if self.parent and self.parent.scene:
+            aabb = self.get_transformed_bounding_box()
+            self.parent.scene.debug.add_box(aabb[0], aabb[1], vec3(1, 1, 1))
 
         # draw the geometry
         glBindVertexArray(self.vao)

@@ -29,7 +29,7 @@ class Shader:
             self._uniform_locations[name] = location
         return self._uniform_locations[name]
 
-    def set_uniform_matrix(self, name: str, matrix) -> None:
+    def set_uniform_matrix(self, name: str, matrix: mat4) -> None:
         loc = glGetUniformLocation(self.program_id, name)
         if loc != -1:
             if isinstance(matrix, mat4):
