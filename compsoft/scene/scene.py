@@ -71,14 +71,14 @@ class Scene:
             (vec3(ray_start_world), vec3(ray_start_world + 10 * ray_dir))
         )
 
-        mesh_components = []
+        all_mesh_components = []
 
         for actor in self.root_actors:
-            mesh_components.extend(self.get_mesh_components(actor))
+            all_mesh_components.extend(self.get_mesh_components(actor))
 
         mesh_components = [
             comp
-            for comp in mesh_components
+            for comp in all_mesh_components
             if ray_aabb_intersect(
                 RayTrace(vec3(ray_start_world), vec3(ray_dir)),
                 comp.get_transformed_bounding_box(),
@@ -87,7 +87,26 @@ class Scene:
             == IntersectResult.INTERSECT
         ]
 
-        # Sort nearest to farest ?
+        # Sort nearest to farthest
+
+        closest_comp: SimpleMeshComponent | None = None
+        closest_t = float("inf")
+        for comp in mesh_components:
+            intersects, t = comp.ray_intersects(
+                vec3(ray_start_world), vec3(ray_dir), False
+            )
+            if intersects and t < closest_t:
+                closest_t = t
+                closest_comp = comp
+
+        for comp in all_mesh_components:
+            comp.selected = False
+
+        if closest_comp:
+            print("Selected: ", closest_comp.parent.id)
+            closest_comp.selected = True
+        else:
+            print("Void :/")
 
     def get_mesh_components(self, actor: Actor) -> list[SimpleMeshComponent]:
         components = []

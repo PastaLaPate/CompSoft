@@ -28,6 +28,11 @@ from pyglm.glm import mat4, vec2, vec3, vec4
 
 from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
+from compsoft.graphics.ray_trace import (
+    IntersectResult,
+    RayTrace,
+    ray_tri_intersect,
+)
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.vbo_indexer import index_vbo
 from compsoft.scene.components.component import RenderableComponent
@@ -70,6 +75,7 @@ class SimpleMeshComponent(RenderableComponent):
         self._mat = material
         self._mat.bind_properties()
         self.dynamic = dynamic
+        self.selected = False
 
         self._position = vec3(0, 0, 0)
         self._scale = vec3(1, 1, 1)
@@ -353,6 +359,56 @@ class SimpleMeshComponent(RenderableComponent):
             ma: vec3 = glm.max(ma, v)  # type: ignore
 
         self._aabb = (mi, ma)
+
+    def ray_intersects(self, origin: vec3, dir: vec3, find_any: bool = False):
+        world_matrix = self.world_space_matrix * self.get_transform_matrix()
+        inv_matrix: mat4 = cast(
+            mat4,
+            glm.inverse(world_matrix),
+        )
+
+        ray_origin_local = vec3(
+            inv_matrix * vec4(origin.x, origin.y, origin.z, 1.0)
+        )
+
+        ray_dir_local = glm.normalize(
+            vec3(inv_matrix * vec4(dir.x, dir.y, dir.z, 0.0))
+        )
+
+        closest_t_local = float("inf")
+        hit_found = False
+
+        for triangle in self._triangles:
+            result, _u, _v, t = ray_tri_intersect(
+                RayTrace(ray_origin_local, ray_dir_local), triangle
+            )
+            if result == IntersectResult.INTERSECT:
+                if find_any:
+                    hit_local_pos = ray_origin_local + ray_dir_local * t
+                    hit_world_pos = vec3(
+                        world_matrix
+                        * vec4(
+                            hit_local_pos.x,
+                            hit_local_pos.y,
+                            hit_local_pos.z,
+                            1.0,
+                        )
+                    )
+                    return True, glm.length(hit_world_pos - origin)
+                closest_t_local = min(closest_t_local, t)
+                hit_found = True
+
+        if not hit_found:
+            return False, float("inf")
+
+        hit_local_pos = ray_origin_local + ray_dir_local * closest_t_local
+        hit_world_pos = vec3(
+            world_matrix
+            * vec4(hit_local_pos.x, hit_local_pos.y, hit_local_pos.z, 1.0)
+        )
+        world_distance = glm.length(hit_world_pos - origin)
+
+        return True, world_distance
 
     def get_transform_matrix(self) -> glm.mat4x4:
         if self.transform_matrix is not None and not self.dirty_matrix:
@@ -658,7 +714,11 @@ class SimpleMeshComponent(RenderableComponent):
 
         if self.parent and self.parent.scene:
             aabb = self.get_transformed_bounding_box()
-            self.parent.scene.debug.add_box(aabb[0], aabb[1], vec3(1, 1, 1))
+            self.parent.scene.debug.add_box(
+                aabb[0],
+                aabb[1],
+                vec3(1, 1, 1) if not self.selected else vec3(1, 0, 0),
+            )
 
         # draw the geometry
         glBindVertexArray(self.vao)

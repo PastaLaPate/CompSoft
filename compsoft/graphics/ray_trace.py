@@ -53,7 +53,7 @@ def ray_tri_intersect_raw(
     if u < 0.0:
         return IntersectResult.REJECT, 0, 0, 0
 
-    r = glm.dot(s, edge_1)
+    r = glm.cross(s, edge_1)
     v = f * glm.dot(dir, r)
     if v < 0.0 or u + v > 1.0:
         return IntersectResult.REJECT, 0, 0, 0
