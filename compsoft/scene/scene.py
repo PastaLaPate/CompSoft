@@ -16,6 +16,12 @@ from pyglm import glm
 from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
 from compsoft.core.debug import Debug
+from compsoft.graphics.ray_trace import (
+    IntersectResult,
+    RayTrace,
+    RayType,
+    ray_aabb_intersect,
+)
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
@@ -69,6 +75,19 @@ class Scene:
 
         for actor in self.root_actors:
             mesh_components.extend(self.get_mesh_components(actor))
+
+        mesh_components = [
+            comp
+            for comp in mesh_components
+            if ray_aabb_intersect(
+                RayTrace(vec3(ray_start_world), vec3(ray_dir)),
+                comp.get_transformed_bounding_box(),
+                RayType.Ray,
+            )[0]
+            == IntersectResult.INTERSECT
+        ]
+
+        # Sort nearest to farest ?
 
     def get_mesh_components(self, actor: Actor) -> list[SimpleMeshComponent]:
         components = []
