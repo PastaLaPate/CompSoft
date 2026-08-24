@@ -21,14 +21,23 @@ class Engine:
 
         self.window = Window(800, 600, "CompSoft")
         self.cam = Camera(vec3(0, 0, 0))
-        self.scene = Scene(self.cam)
         self.cam_controls = CameraControls(self.cam, self.window)
+        self.scene = Scene(self.cam)
+
+        self.cam_controls.add_lmb_click_listener(
+            lambda pos: self.scene.select_on_click(
+                self.window.size[0], self.window.size[1], pos
+            )
+        )
+
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
         sq_shader_pair = resources.get_shader_path("lit")
         self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
 
-    def _add_prerender_listener(self, listener: Callable[[float, float], None]):
+    def _add_prerender_listener(
+        self, listener: Callable[[float, float], None]
+    ):
         self.prerender_listeners.append(listener)
 
     def start(self) -> None:
@@ -54,7 +63,10 @@ class Engine:
             self.cam_controls.update(self.window.dt)
 
             t += self.window.dt * 100
-            [listener(t, self.window.dt) for listener in self.prerender_listeners]
+            [
+                listener(t, self.window.dt)
+                for listener in self.prerender_listeners
+            ]
             self.fb.bind()
             self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
             self.fb.unbind()

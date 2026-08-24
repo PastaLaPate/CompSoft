@@ -1,8 +1,8 @@
 import uuid
 from typing import cast
 
+import glm
 import numpy as np
-from glm import mat4
 from OpenGL.GL import (
     GL_DYNAMIC_DRAW,
     GL_UNIFORM_BUFFER,
@@ -12,12 +12,15 @@ from OpenGL.GL import (
     glBufferSubData,
     glGenBuffers,
 )
+from pyglm import glm
+from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
 from compsoft.core.debug import Debug
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
 from compsoft.scene.components.light import LightComponent, LightData
+from compsoft.scene.components.mesh import SimpleMeshComponent
 
 
 class Scene:
@@ -30,6 +33,51 @@ class Scene:
         self.lights_ubo_id = -1
 
         self.debug = Debug()
+        self.debug_rays = []
+
+    def select_on_click(self, w: int, h: int, pos: vec2):
+        ndc_x = (pos.x / w) * 2.0 - 1.0
+        ndc_y = (
+            1.0 - (pos.y / h) * 2.0
+        )  # Y Inverse because opengl decided to render upside down or smth
+
+        ray_start = vec4(ndc_x, ndc_y, -1.0, 1.0)
+        ray_end = vec4(ndc_x, ndc_y, 1.0, 1.0)
+
+        inverse_m: mat4x4 = cast(
+            mat4x4,
+            glm.inverse(
+                self.camera.get_projection_matrix(w / h)
+                * self.camera.get_view_matrix(),
+            ),
+        )
+
+        ray_start_world = cast(vec4, inverse_m * ray_start)
+        ray_start_world /= ray_start_world.w
+
+        ray_end_world = cast(vec4, inverse_m * ray_end)
+        ray_end_world /= ray_end_world.w
+
+        ray_dir = ray_end_world - ray_start_world
+        ray_dir = glm.normalize(ray_dir)
+
+        self.debug_rays.append(
+            (vec3(ray_start_world), vec3(ray_start_world + 10 * ray_dir))
+        )
+
+        mesh_components = []
+
+        for actor in self.root_actors:
+            mesh_components.extend(self.get_mesh_components(actor))
+
+    def get_mesh_components(self, actor: Actor) -> list[SimpleMeshComponent]:
+        components = []
+        components.extend(actor.get_components_by_type(SimpleMeshComponent))
+
+        for child in actor.children:
+            components.extend(self.get_mesh_components(child))
+
+        return components
 
     def load(self):
         self.lights_ubo_id = glGenBuffers(1)
@@ -111,6 +159,8 @@ class Scene:
         for actor in self.root_actors:
             actor.render(aspect_ratio, mat4(), render_pass)  # pass identity
         if render_pass == RenderPass.FORWARD:
+            [self.debug.add_line(*line) for line in self.debug_rays]
+
             self.debug.draw(
                 cast(
                     mat4,

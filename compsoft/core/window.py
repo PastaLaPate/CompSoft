@@ -11,6 +11,7 @@ from OpenGL.GL import (
     glDepthFunc,
     glEnable,
 )
+from pyglm.glm import vec2
 
 
 class Window:
@@ -103,15 +104,25 @@ class Window:
         return glfw.get_key(self.window, key) == glfw.PRESS
 
     def rmb_pressed(self) -> bool:
-        return glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS
+        return (
+            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_RIGHT)
+            == glfw.PRESS
+        )
 
     def lmb_pressed(self) -> bool:
-        return glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS
+        return (
+            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_LEFT)
+            == glfw.PRESS
+        )
 
     def mmb_pressed(self) -> bool:
         return (
-            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_MIDDLE) == glfw.PRESS
+            glfw.get_mouse_button(self.window, glfw.MOUSE_BUTTON_MIDDLE)
+            == glfw.PRESS
         )
+
+    def cursor_position(self) -> vec2:
+        return vec2(*glfw.get_cursor_pos(self.window))
 
     def exit(self):
         self.__running = False
