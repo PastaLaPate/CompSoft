@@ -11,7 +11,9 @@ from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
 from compsoft.resources.manager import resources
 from compsoft.scene.actor import Actor
+from compsoft.scene.components.cone import SimpleConeComponent
 from compsoft.scene.components.cube import SimpleCubeComponent
+from compsoft.scene.components.cylinder import SimpleCylinderComponent
 from compsoft.scene.components.light import PointLight
 from compsoft.scene.components.model_mesh import ModelMeshComponent
 
@@ -66,10 +68,20 @@ def main():
 
     light_actor = scene.add_actor(Actor())
     light_cube = light_actor.add_component(
-        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
     )
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
+
+    cone_actor = scene.add_actor(Actor())
+    cone_actor.position = vec3(5, 5, 0)
+    cone_actor.add_component(SimpleConeComponent(mat)).load()
+
+    cylinder_actor = scene.add_actor(Actor())
+    cylinder_actor.position = vec3(10, 5, 0)
+    cylinder_actor.add_component(SimpleCylinderComponent(mat)).load()
 
     hq_mat = Material(
         resources.get_texture_path(
