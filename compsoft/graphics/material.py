@@ -16,11 +16,15 @@ from compsoft.resources.textures import TextureRegistry
 
 
 class Material:
-    def __init__(self, albedo: Path, normal: Path | None = None) -> None:
+    def __init__(self, albedo: Path | int, normal: Path | None = None) -> None:
         shader_pair = resources.get_shader_path("gbuffer")
         self.shader = Shader(shader_pair.vertex, shader_pair.fragment)
 
-        self.albedo = TextureRegistry.get_texture(albedo) or -1
+        self.albedo = (
+            TextureRegistry.get_texture(albedo) or -1
+            if isinstance(albedo, Path)
+            else albedo
+        )
         self.normal = (
             TextureRegistry.get_texture(normal)
             if normal

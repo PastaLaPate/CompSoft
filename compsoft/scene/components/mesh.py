@@ -118,6 +118,8 @@ class SimpleMeshComponent(RenderableComponent):
             if isinstance(material, LightMaterial)
             else RenderPass.DEFERRED
         )
+        self.load_called = False
+        self.load_warned = False
 
         self.compute_normals()
         self.compute_tangent_basis()
@@ -427,6 +429,7 @@ class SimpleMeshComponent(RenderableComponent):
         return m
 
     def load(self):
+        self.load_called = True
         """Loads all of the meshes info into VRAM."""
         if len(self.triangles) != len(self.uvs) or (
             len(self.triangles) * 3
@@ -681,6 +684,11 @@ class SimpleMeshComponent(RenderableComponent):
             or not self.parent
             or not self.parent.scene
         ):
+            if not self.load_called and not self.load_warned:
+                print(
+                    f"WARNING: Tried to draw component of class {self.__class__.__name__} of actor {self.parent.name if self.parent else ''} ({self.parent.id if self.parent else ''}) without loading it first."
+                )
+                self.load_warned = True
             return  # Prevent drawing before load() is called
 
         self._dirty_transformed_aabb = (

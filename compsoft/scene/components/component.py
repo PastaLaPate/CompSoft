@@ -17,7 +17,7 @@ class Component:
         self._parent: Actor | None = None
 
     @property
-    def parent(self):
+    def parent(self) -> Actor | None:
         return self._parent
 
     @parent.setter

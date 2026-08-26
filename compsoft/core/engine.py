@@ -16,10 +16,10 @@ from compsoft.scene.scene import Scene
 
 class Engine:
     def __init__(self) -> None:
-
         self.prerender_listeners: list[Callable[[float, float], None]] = []
 
         self.window = Window(800, 600, "CompSoft")
+
         self.cam = Camera(vec3(0, 0, 0))
         self.cam_controls = CameraControls(self.cam, self.window)
         self.scene = Scene(self.cam)

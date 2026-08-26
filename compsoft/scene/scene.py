@@ -27,6 +27,7 @@ from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
 from compsoft.scene.components.light import LightComponent, LightData
 from compsoft.scene.components.mesh import SimpleMeshComponent
+from compsoft.scene.gizmos.translation_gizmo import TranslationGizmo
 
 
 class Scene:
@@ -40,6 +41,8 @@ class Scene:
 
         self.debug = Debug()
         self.debug_rays = []
+
+        self.translation_gizmo = self.add_actor(TranslationGizmo())
 
     def select_on_click(self, w: int, h: int, pos: vec2):
         ndc_x = (pos.x / w) * 2.0 - 1.0
