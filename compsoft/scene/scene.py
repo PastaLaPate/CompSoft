@@ -1,7 +1,6 @@
 import uuid
 from typing import cast
 
-import glm
 import numpy as np
 from OpenGL.GL import (
     GL_DYNAMIC_DRAW,
@@ -15,7 +14,7 @@ from OpenGL.GL import (
 from pyglm import glm
 from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
-from compsoft.core.debug import Debug
+from compsoft.core.debug import Debug, DebugFlags
 from compsoft.graphics.ray_trace import (
     IntersectResult,
     RayTrace,
@@ -70,9 +69,10 @@ class Scene:
         ray_dir = ray_end_world - ray_start_world
         ray_dir = glm.normalize(ray_dir)
 
-        self.debug_rays.append(
-            (vec3(ray_start_world), vec3(ray_start_world + 10 * ray_dir))
-        )
+        if self.debug.has_flag(DebugFlags.DEBUG_SELECTION_RAYCAST):
+            self.debug_rays.append(
+                (vec3(ray_start_world), vec3(ray_start_world + 10 * ray_dir))
+            )
 
         all_mesh_components = []
 

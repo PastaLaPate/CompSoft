@@ -26,6 +26,7 @@ from OpenGL.GL import (
 from pyglm import glm
 from pyglm.glm import mat4, vec2, vec3, vec4
 
+from compsoft.core.debug import DebugFlags
 from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
 from compsoft.graphics.ray_trace import (
@@ -691,10 +692,9 @@ class SimpleMeshComponent(RenderableComponent):
                 self.load_warned = True
             return  # Prevent drawing before load() is called
 
-        self._dirty_transformed_aabb = (
-            self.world_space_matrix != world_model_matrix
-        )
-        self.world_space_matrix = world_model_matrix
+        if self.world_space_matrix != world_model_matrix:
+            self._dirty_transformed_aabb = True
+            self.world_space_matrix = world_model_matrix
 
         world_model_matrix = cast(
             mat4, world_model_matrix * self.get_transform_matrix()
@@ -721,7 +721,11 @@ class SimpleMeshComponent(RenderableComponent):
             self.selected,
         )
 
-        if self.parent and self.parent.scene:
+        if (
+            self.parent
+            and self.parent.scene
+            and self.parent.scene.debug.has_flag(DebugFlags.DEBUG_MESH_AABB)
+        ):
             aabb = self.get_transformed_bounding_box()
             self.parent.scene.debug.add_box(
                 aabb[0],

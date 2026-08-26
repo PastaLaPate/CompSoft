@@ -1,4 +1,5 @@
 import ctypes
+from enum import IntFlag, auto
 
 import numpy as np
 from OpenGL.GL import (
@@ -26,6 +27,17 @@ from compsoft.graphics.shader import Shader
 from compsoft.resources.manager import resources
 
 
+class DebugFlags(IntFlag):
+    # Format as veritcal
+    # fmt: off
+    DEBUG_NONE = 0
+    DEBUG_MESH_AABB = auto()
+    DEBUG_SELECTION_RAYCAST = auto()
+
+    DEBUG_ALL = DEBUG_MESH_AABB | DEBUG_SELECTION_RAYCAST
+    # fmt: on
+
+
 class Debug:
     MAX_LINES = 10_000
 
@@ -33,11 +45,26 @@ class Debug:
         self._debug_vertices: list[tuple[vec3, vec3]] = []
         self._dirty_vertices = False
 
+        # Just a container
+        self.flags: DebugFlags = DebugFlags.DEBUG_NONE
+
         self.vao = 0
         self.vbo = 0
 
         shader_paths = resources.get_shader_path("debug")
         self.shader = Shader(shader_paths.vertex, shader_paths.fragment)
+
+    def add_flag(self, flag: DebugFlags):
+        self.flags |= flag
+
+    def has_flag(self, flag: DebugFlags):
+        return bool(self.flags & flag)
+
+    def remove_flag(self, flag: DebugFlags):
+        self.flags &= ~flag
+
+    def clear_flags(self):
+        self.flags = DebugFlags.DEBUG_NONE
 
     def load(self):
         # Interleaved data
