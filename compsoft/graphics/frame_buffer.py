@@ -1,23 +1,30 @@
 from OpenGL.GL import (
+    GL_BLEND,
+    GL_CLAMP_TO_EDGE,
     GL_COLOR_ATTACHMENT0,
     GL_COLOR_ATTACHMENT1,
     GL_COLOR_ATTACHMENT2,
+    GL_COLOR_ATTACHMENT3,
     GL_COLOR_BUFFER_BIT,
     GL_DEPTH_ATTACHMENT,
     GL_DEPTH_BUFFER_BIT,
-    GL_DEPTH_COMPONENT,
+    GL_DEPTH_COMPONENT24,
     GL_DRAW_FRAMEBUFFER,
     GL_FLOAT,
     GL_FRAMEBUFFER,
     GL_FRAMEBUFFER_COMPLETE,
     GL_NEAREST,
+    GL_R16F,
     GL_READ_FRAMEBUFFER,
+    GL_RED,
     GL_RENDERBUFFER,
     GL_RGBA,
     GL_RGBA16F,
     GL_TEXTURE_2D,
     GL_TEXTURE_MAG_FILTER,
     GL_TEXTURE_MIN_FILTER,
+    GL_TEXTURE_WRAP_S,
+    GL_TEXTURE_WRAP_T,
     GL_UNSIGNED_BYTE,
     glBindFramebuffer,
     glBindRenderbuffer,
@@ -25,9 +32,11 @@ from OpenGL.GL import (
     glBlitFramebuffer,
     glCheckFramebufferStatus,
     glClear,
+    glClearColor,
     glDeleteFramebuffers,
     glDeleteRenderbuffers,
     glDeleteTextures,
+    glDisable,
     glDrawBuffers,
     glFramebufferRenderbuffer,
     glFramebufferTexture2D,
@@ -50,6 +59,7 @@ class FrameBuffer:
         self.position_tex = 0
         self.normal_tex = 0
         self.color_tex = 0
+        self.selection_tex = 0
 
         self.drb = 0  # depth render buffer
 
@@ -78,8 +88,7 @@ class FrameBuffer:
             None,
         )
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        self.apply_texture_parameters()
         glFramebufferTexture2D(
             GL_FRAMEBUFFER,
             GL_COLOR_ATTACHMENT0,
@@ -104,8 +113,7 @@ class FrameBuffer:
             None,
         )
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        self.apply_texture_parameters()
         glFramebufferTexture2D(
             GL_FRAMEBUFFER,
             GL_COLOR_ATTACHMENT1,
@@ -130,8 +138,7 @@ class FrameBuffer:
             None,
         )
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        self.apply_texture_parameters()
         glFramebufferTexture2D(
             GL_FRAMEBUFFER,
             GL_COLOR_ATTACHMENT2,
@@ -140,22 +147,57 @@ class FrameBuffer:
             0,
         )
 
+        # Selection
+        self.selection_tex = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, self.selection_tex)
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_R16F,
+            self.width,
+            self.height,
+            0,
+            GL_RED,
+            GL_FLOAT,
+            None,
+        )
+        self.apply_texture_parameters()
+
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT3,
+            GL_TEXTURE_2D,
+            self.selection_tex,
+            0,
+        )
+
         self.drb = glGenRenderbuffers(1)
         glBindRenderbuffer(GL_RENDERBUFFER, self.drb)
         glRenderbufferStorage(
-            GL_RENDERBUFFER, GL_DEPTH_COMPONENT, self.width, self.height
+            GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, self.width, self.height
         )
         glFramebufferRenderbuffer(
             GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, self.drb
         )
 
         glDrawBuffers(
-            3,
-            [GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2],
-        )  # "1" is the size of DrawBuffers
+            4,
+            [
+                GL_COLOR_ATTACHMENT0,
+                GL_COLOR_ATTACHMENT1,
+                GL_COLOR_ATTACHMENT2,
+                GL_COLOR_ATTACHMENT3,
+            ],
+        )  # "4" is the size of DrawBuffers
 
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
             print("shit smth went wrong")
+
+    def apply_texture_parameters(self):
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
 
     def _on_window_size_changed(self, w: int, h: int) -> None:
         if w == self.width and h == self.height:
@@ -202,16 +244,31 @@ class FrameBuffer:
             None,
         )
 
+        glBindTexture(GL_TEXTURE_2D, self.selection_tex)
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_R16F,
+            self.width,
+            self.height,
+            0,
+            GL_RED,
+            GL_FLOAT,
+            None,
+        )
+
         glBindRenderbuffer(GL_RENDERBUFFER, self.drb)
         glRenderbufferStorage(
-            GL_RENDERBUFFER, GL_DEPTH_COMPONENT, self.width, self.height
+            GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, self.width, self.height
         )
 
     def bind(self) -> None:
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
         glViewport(0, 0, self.width, self.height)
+        glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT)
         glClear(GL_DEPTH_BUFFER_BIT)
+        glDisable(GL_BLEND)
 
     def unbind(self) -> None:
         # Keep depth buffer
@@ -236,7 +293,20 @@ class FrameBuffer:
     def destroy(self):
         if self.fbo:
             glDeleteFramebuffers(1, [self.fbo])
-        if self.position_tex and self.normal_tex and self.color_tex:
-            glDeleteTextures(3, [self.position_tex, self.normal_tex, self.color_tex])
+        if (
+            self.position_tex
+            and self.normal_tex
+            and self.color_tex
+            and self.selection_tex
+        ):
+            glDeleteTextures(
+                4,
+                [
+                    self.position_tex,
+                    self.normal_tex,
+                    self.color_tex,
+                    self.selection_tex,
+                ],
+            )
         if self.drb:
             glDeleteRenderbuffers(1, [self.drb])

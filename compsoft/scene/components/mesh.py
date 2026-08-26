@@ -710,6 +710,7 @@ class SimpleMeshComponent(RenderableComponent):
             V,
             normal_matrix,
             self.parent.scene.camera.pos,
+            self.selected,
         )
 
         if self.parent and self.parent.scene:

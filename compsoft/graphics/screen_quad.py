@@ -11,6 +11,7 @@ from OpenGL.GL import (
     GL_TEXTURE0,
     GL_TEXTURE1,
     GL_TEXTURE2,
+    GL_TEXTURE3,
     GL_TEXTURE_2D,
     GL_TRIANGLES,
     glActiveTexture,
@@ -30,7 +31,7 @@ from OpenGL.GL import (
     glUniformBlockBinding,
     glVertexAttribPointer,
 )
-from pyglm.glm import vec3
+from pyglm.glm import vec2, vec3
 
 from compsoft.graphics.shader import Shader
 
@@ -79,14 +80,19 @@ class ScreenQuad:
     def bind_shader(self):
         glDisable(GL_DEPTH_TEST)
         self.shader.use()
-        block_index = glGetUniformBlockIndex(self.shader.program_id, "LightingBlock")
+        block_index = glGetUniformBlockIndex(
+            self.shader.program_id, "LightingBlock"
+        )
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
 
     def render(
         self,
+        screen_width: int,
+        screen_height: int,
         position_tex: int,
         normal_tex: int,
         color_tex: int,
+        selected_tex: int,
         camera_pos: vec3,
     ):
 
@@ -96,10 +102,18 @@ class ScreenQuad:
         glBindTexture(GL_TEXTURE_2D, normal_tex)
         glActiveTexture(GL_TEXTURE2)
         glBindTexture(GL_TEXTURE_2D, color_tex)
+        glActiveTexture(GL_TEXTURE3)
+        glBindTexture(GL_TEXTURE_2D, selected_tex)
 
         self.shader.set_uniform_i("positionTexture", 0)
         self.shader.set_uniform_i("normalTexture", 1)
         self.shader.set_uniform_i("colorTexture", 2)
+        self.shader.set_uniform_i("selectionTexture", 3)
+
+        self.shader.set_uniform_vec2(
+            "u_TexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)
+        )
+
         self.shader.set_uniform_vec3("cameraPos", camera_pos)
         self.shader.set_uniform_float("time", float(glfw.get_time() * 10.0))
 

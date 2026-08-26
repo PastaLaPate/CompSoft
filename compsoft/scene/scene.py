@@ -102,7 +102,7 @@ class Scene:
         for comp in all_mesh_components:
             comp.selected = False
 
-        if closest_comp:
+        if closest_comp and closest_comp.parent:
             print("Selected: ", closest_comp.parent.id)
             closest_comp.selected = True
         else:

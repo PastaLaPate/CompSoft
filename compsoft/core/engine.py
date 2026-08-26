@@ -73,9 +73,12 @@ class Engine:
             self.scene.upload_light_ubo(self.scene.get_lights())
             self.sq.bind_shader()
             self.sq.render(
+                self.window.size[0],
+                self.window.size[1],
                 self.fb.position_tex,
                 self.fb.normal_tex,
                 self.fb.color_tex,
+                self.fb.selection_tex,
                 self.scene.camera.pos,
             )
             self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)

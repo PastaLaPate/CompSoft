@@ -34,6 +34,7 @@ class LightMaterial(Material):
         view_matrix: mat4,
         normal_matrix: mat4,
         cam_pos: vec3,
+        selected: bool,
     ):
         self.shader.use()
 
@@ -49,3 +50,4 @@ class LightMaterial(Material):
         self.shader.set_uniform_matrix("V", view_matrix)
         self.shader.set_uniform_matrix("NormalMatrix", normal_matrix)
         self.shader.set_uniform_vec3("cameraPosition_worldspace", cam_pos)
+        self.shader.set_uniform_bool("u_IsSelected", selected)

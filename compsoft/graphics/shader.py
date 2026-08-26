@@ -3,16 +3,18 @@ from pathlib import Path
 from glm import value_ptr
 from OpenGL.GL import (
     GL_FALSE,
+    GL_TRUE,
     glDeleteProgram,
     glGetUniformLocation,
     glUniform1f,
     glUniform1i,
+    glUniform2f,
     glUniform3f,
     glUniformMatrix3fv,
     glUniformMatrix4fv,
     glUseProgram,
 )
-from pyglm.glm import mat3, mat4, vec3
+from pyglm.glm import mat3, mat4, vec2, vec3
 
 from compsoft.resources.shaders import ShaderRegistry
 
@@ -46,6 +48,16 @@ class Shader:
         loc = self.get_uniform_location(name)
         if loc != -1:
             glUniform1i(loc, val)
+
+    def set_uniform_bool(self, name: str, val: bool) -> None:
+        loc = self.get_uniform_location(name)
+        if loc != -1:
+            glUniform1i(loc, GL_TRUE if val else GL_FALSE)
+
+    def set_uniform_vec2(self, name: str, val: vec2) -> None:
+        loc = self.get_uniform_location(name)
+        if loc != -1:
+            glUniform2f(loc, val.x, val.y)
 
     def set_uniform_vec3(self, name: str, val: vec3) -> None:
         loc = self.get_uniform_location(name)
