@@ -52,8 +52,7 @@ class ViewportInputConsumer(InputConsumer):
 
             return True
 
-        if action_id == "camera.pan_release":
-            print("released")
+        if action_id == BINDING_CAMERA_PAN_RELEASE.id:
             if self.is_panning:
                 self.is_panning = False
                 window.set_cursor_mode(CursorMode.NORMAL)

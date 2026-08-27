@@ -28,6 +28,7 @@ class InputManager:
 
         self.active_keys: set[Inputs] = set()
         self.current_modifiers = InputModifier.NONE
+        self._pressed_modifiers: dict[Inputs, InputModifier] = {}
 
         self.controller: WindowInputBridge | None = None
 
@@ -54,11 +55,20 @@ class InputManager:
     def handle_input_event(
         self, input_code: Inputs, mode: TriggerMode, value: float | None = None
     ) -> None:
+        eval_modifiers = self.current_modifiers
+
         if mode == TriggerMode.PRESSED:
             self.active_keys.add(input_code)
+            self._update_modifiers()
+            self._pressed_modifiers[input_code] = self.current_modifiers
+            eval_modifiers = self.current_modifiers
         elif mode == TriggerMode.RELEASED:
             self.active_keys.discard(input_code)
-        self._update_modifiers()
+            eval_modifiers = self._pressed_modifiers.pop(
+                input_code, self.current_modifiers
+            )
+        else:
+            eval_modifiers = self.current_modifiers
 
         matching_bindings = [
             b
@@ -70,8 +80,7 @@ class InputManager:
         for binding in matching_bindings:
             if (
                 binding.modifier == InputModifier.NONE
-                or (self.current_modifiers & binding.modifier)
-                == binding.modifier
+                or (eval_modifiers & binding.modifier) == binding.modifier
             ):
                 val = (
                     (
@@ -82,8 +91,11 @@ class InputManager:
                     if value is None
                     else value
                 )
-                if self.dispatch_action(binding.id, val):
+                if self.dispatch_action(binding.id, 0.0, val):
                     break
+
+        if mode == TriggerMode.RELEASED:
+            self._update_modifiers()
 
     def begin_frame(self) -> None:
         self.pointer.begin_frame()
@@ -102,7 +114,7 @@ class InputManager:
                     binding.modifier == InputModifier.NONE
                     or (self.current_modifiers & binding.modifier)
                     == binding.modifier
-                ) and self.dispatch_action(binding.id, 1.0):
+                ) and self.dispatch_action(binding.id, dt, 1.0):
                     break
 
     def dispatch_action(
