@@ -70,6 +70,11 @@ class CameraControls:
                 flush=True,
             )
 
+    def pan_camera(self, delta: vec2):
+        self.camera.pos += self.camera.right * (delta.x * self.mouse_speed)
+        self.camera.pos -= self.camera.up * (delta.y * self.mouse_speed)
+        self.camera._dirty_matrix = True
+
     def update(self, dt: float):
         current_x, current_y = glfw.get_cursor_pos(self.window.window)
 
@@ -86,8 +91,7 @@ class CameraControls:
 
         if mmb_pressed:
             self.disable_cursor()
-            self.camera.pos += self.camera.right * (dx * self.mouse_speed)
-            self.camera.pos -= self.camera.up * (dy * self.mouse_speed)
+            self.pan_camera(vec2(dx, dy))
             dirty = True
 
         if lmb_pressed and (not mmb_pressed):

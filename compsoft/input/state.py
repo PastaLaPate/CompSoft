@@ -1,6 +1,9 @@
+from typing import TYPE_CHECKING
+
 from pyglm.glm import vec2
 
-from compsoft.input.consumer import InputConsumer
+if TYPE_CHECKING:
+    from compsoft.input.consumer import InputConsumer
 
 
 class PointerState:

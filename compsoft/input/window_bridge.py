@@ -1,9 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import glfw
-from glfw import _GLFWwindowPointerT
 from pyglm.glm import vec2
 
+from compsoft.input.cursors import CursorMode, CursorShape
 from compsoft.input.inputs import Inputs, TriggerMode
 from compsoft.input.manager import InputManager
+
+if TYPE_CHECKING:
+    from glfw import (
+        _GLFWwindowPointerT,  # Not available at runtime for some reason
+    )
 
 
 class WindowInputBridge:
@@ -12,6 +21,7 @@ class WindowInputBridge:
     ):
         self.window = glfw_window
         self.input_mgr = input_manager
+        self.input_mgr.controller = self
         self.pointer = input_manager.pointer
 
         glfw.set_cursor_pos_callback(self.window, self._cursor_pos_callback)
@@ -30,7 +40,38 @@ class WindowInputBridge:
         }
 
         # Maps GLFW/QT keycodes to standard us layout
+        self._cursor_cache = {
+            CursorShape.ARROW: glfw.create_standard_cursor(glfw.ARROW_CURSOR),
+            CursorShape.IBEAM: glfw.create_standard_cursor(glfw.IBEAM_CURSOR),
+            CursorShape.CROSSHAIR: glfw.create_standard_cursor(
+                glfw.CROSSHAIR_CURSOR
+            ),
+            CursorShape.HAND: glfw.create_standard_cursor(glfw.HAND_CURSOR),
+            CursorShape.RESIZE_ALL: glfw.create_standard_cursor(
+                glfw.RESIZE_ALL_CURSOR
+            ),
+        }
         self.scancode_map: dict[int, Inputs] = self._build_scancode_map()
+
+    def set_cursor_mode(self, mode: CursorMode):
+        match mode:
+            case CursorMode.NORMAL:
+                glfw.set_input_mode(
+                    self.window, glfw.CURSOR, glfw.CURSOR_NORMAL
+                )
+            case CursorMode.HIDDEN:
+                glfw.set_input_mode(
+                    self.window, glfw.CURSOR, glfw.CURSOR_HIDDEN
+                )
+            case CursorMode.DISABLED:
+                glfw.set_input_mode(
+                    self.window, glfw.CURSOR, glfw.CURSOR_DISABLED
+                )
+
+    def set_cursor_shape(self, shape: CursorShape) -> None:
+        cursor = self._cursor_cache.get(shape)
+        if cursor:
+            glfw.set_cursor(self.window, cursor)
 
     def _cursor_pos_callback(
         self, window: _GLFWwindowPointerT, xpos: float, ypos: float

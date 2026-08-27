@@ -1,7 +1,23 @@
+from typing import TYPE_CHECKING
+
 from compsoft.input.binding import Binding
 from compsoft.input.consumer import InputConsumer
 from compsoft.input.inputs import InputModifier, Inputs, TriggerMode
 from compsoft.input.state import PointerState
+
+if TYPE_CHECKING:
+    from compsoft.input.window_bridge import WindowInputBridge
+
+MODIFIERS_MAP = {
+    Inputs.LEFT_CONTROL: InputModifier.LEFT_CONTROL | InputModifier.CTRL,
+    Inputs.RIGHT_CONTROL: InputModifier.RIGHT_CONTROL | InputModifier.CTRL,
+    Inputs.LEFT_SHIFT: InputModifier.LEFT_SHIFT | InputModifier.SHIFT,
+    Inputs.RIGHT_SHIFT: InputModifier.RIGHT_SHIFT | InputModifier.SHIFT,
+    Inputs.LEFT_ALT: InputModifier.LEFT_ALT | InputModifier.ALT,
+    Inputs.RIGHT_ALT: InputModifier.RIGHT_ALT | InputModifier.ALT,
+    Inputs.LEFT_SUPER: InputModifier.LEFT_SUPER | InputModifier.SUPER,
+    Inputs.RIGHT_SUPER: InputModifier.RIGHT_SUPER | InputModifier.SUPER,
+}
 
 
 class InputManager:
@@ -12,6 +28,8 @@ class InputManager:
 
         self.active_keys: set[Inputs] = set()
         self.current_modifiers = InputModifier.NONE
+
+        self.controller: WindowInputBridge | None = None
 
     def add_consumer(self, consumer: InputConsumer):
         self._consumers.append(consumer)
@@ -27,19 +45,9 @@ class InputManager:
 
     def _update_modifiers(self) -> None:
         mods = InputModifier.NONE
-        modifiers_map = {
-            Inputs.LEFT_CONTROL: InputModifier.LEFT_CONTROL,
-            Inputs.RIGHT_CONTROL: InputModifier.RIGHT_CONTROL,
-            Inputs.LEFT_SHIFT: InputModifier.LEFT_SHIFT,
-            Inputs.RIGHT_SHIFT: InputModifier.RIGHT_SHIFT,
-            Inputs.LEFT_ALT: InputModifier.ALT,
-            Inputs.RIGHT_ALT: InputModifier.ALT,
-            Inputs.LEFT_SUPER: InputModifier.SUPER,
-            Inputs.RIGHT_SUPER: InputModifier.SUPER,
-        }
         for key in self.active_keys:
-            if key in modifiers_map:
-                mods |= modifiers_map[key]
+            if key in MODIFIERS_MAP:
+                mods |= MODIFIERS_MAP[key]
 
         self.current_modifiers = mods
 
@@ -50,13 +58,13 @@ class InputManager:
             self.active_keys.add(input_code)
         elif mode == TriggerMode.RELEASED:
             self.active_keys.discard(input_code)
+        self._update_modifiers()
 
         matching_bindings = [
             b
             for b in self.bindings
             if b.input == input_code and b.trigger_mode == mode
         ]
-
         matching_bindings.sort(key=lambda b: b.chord_weight, reverse=True)
 
         for binding in matching_bindings:
@@ -74,14 +82,14 @@ class InputManager:
                     break
 
     def update(self) -> None:
-        for key in list(self.active_keys):
+        for key in self.active_keys:
             matching_bindings = [
                 b
                 for b in self.bindings
                 if b.input == key and b.trigger_mode == TriggerMode.WHILE
             ]
-            matching_bindings.sort(key=lambda b: b.chord_weight, reverse=True)
 
+            matching_bindings.sort(key=lambda b: b.chord_weight, reverse=True)
             for binding in matching_bindings:
                 if (
                     binding.modifier == InputModifier.NONE
@@ -91,12 +99,16 @@ class InputManager:
                     break
 
     def dispatch_action(self, action_id: str, value: float = 1.0) -> bool:
+        if not self.controller:
+            return False
         if self.pointer.active_drag_action:
             self.pointer.active_drag_action.on_action(
-                action_id, value, self.pointer
+                action_id, value, self.pointer, self.controller
             )
             return True
         for consumer in self._consumers:
-            if consumer.on_action(action_id, value, self.pointer):
+            if consumer.on_action(
+                action_id, value, self.pointer, self.controller
+            ):
                 return True
         return False

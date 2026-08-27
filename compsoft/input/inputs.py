@@ -12,14 +12,20 @@ class TriggerMode(IntEnum):
 class InputModifier(IntFlag):
     RIGHT_CONTROL = auto()
     LEFT_CONTROL = auto()
-    CTRL = RIGHT_CONTROL | LEFT_CONTROL
 
     RIGHT_SHIFT = auto()
     LEFT_SHIFT = auto()
-    SHIFT = RIGHT_SHIFT | LEFT_SHIFT
+
+    RIGHT_ALT = auto()
+    LEFT_ALT = auto()
+
+    RIGHT_SUPER = auto()
+    LEFT_SUPER = auto()
 
     ALT = auto()
     SUPER = auto()
+    CTRL = auto()
+    SHIFT = auto()
 
     NONE = 0
 
