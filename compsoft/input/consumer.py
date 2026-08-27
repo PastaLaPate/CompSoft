@@ -21,6 +21,7 @@ class InputConsumer(ABC):
     def on_action(
         self,
         action_id: str,
+        dt: float,
         value: float,
         pointer: PointerState,
         window: WindowInputBridge,
@@ -29,6 +30,7 @@ class InputConsumer(ABC):
 
         Args:
             action_id (str): The binding name of the action.
+            dt (float): Delta time.
             value (float): For keys and mouse button: 1.0 when pressed, 0.0 when released, for mouse wheel: 1.0 for scrolling up and 0.0 for down, for mouse movement: pixel distance.
             pointer (PointerState): The state of the pointer.
             window (WindowInputBridge): The window bridge calling.

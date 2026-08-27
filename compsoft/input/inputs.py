@@ -45,6 +45,8 @@ class Inputs(IntEnum):
     MOUSE_5 = auto()
     X2 = MOUSE_5
 
+    MOUSE_WHEEL = auto()
+
     # Special characters
     ESCAPE = auto()
     ESC = ESCAPE

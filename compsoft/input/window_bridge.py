@@ -99,6 +99,9 @@ class WindowInputBridge:
         self, window: _GLFWwindowPointerT, xoffset: float, yoffset: float
     ) -> None:
         self.pointer.scroll_delta = vec2(xoffset, yoffset)
+        self.input_mgr.handle_input_event(
+            Inputs.MOUSE_WHEEL, TriggerMode.AXIS_DELTA, yoffset
+        )
 
     def _key_callback(
         self,

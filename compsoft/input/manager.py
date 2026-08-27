@@ -52,7 +52,7 @@ class InputManager:
         self.current_modifiers = mods
 
     def handle_input_event(
-        self, input_code: Inputs, mode: TriggerMode
+        self, input_code: Inputs, mode: TriggerMode, value: float | None = None
     ) -> None:
         if mode == TriggerMode.PRESSED:
             self.active_keys.add(input_code)
@@ -74,14 +74,18 @@ class InputManager:
                 == binding.modifier
             ):
                 val = (
-                    1.0
-                    if mode in (TriggerMode.PRESSED, TriggerMode.WHILE)
-                    else 0.0
+                    (
+                        1.0
+                        if mode in (TriggerMode.PRESSED, TriggerMode.WHILE)
+                        else 0.0
+                    )
+                    if value is None
+                    else value
                 )
                 if self.dispatch_action(binding.id, val):
                     break
 
-    def update(self) -> None:
+    def update(self, dt: float) -> None:
         for key in self.active_keys:
             matching_bindings = [
                 b
@@ -98,17 +102,19 @@ class InputManager:
                 ) and self.dispatch_action(binding.id, 1.0):
                     break
 
-    def dispatch_action(self, action_id: str, value: float = 1.0) -> bool:
+    def dispatch_action(
+        self, action_id: str, dt: float, value: float = 1.0
+    ) -> bool:
         if not self.controller:
             return False
         if self.pointer.active_drag_action:
             self.pointer.active_drag_action.on_action(
-                action_id, value, self.pointer, self.controller
+                action_id, dt, value, self.pointer, self.controller
             )
             return True
         for consumer in self._consumers:
             if consumer.on_action(
-                action_id, value, self.pointer, self.controller
+                action_id, dt, value, self.pointer, self.controller
             ):
                 return True
         return False

@@ -29,23 +29,25 @@ class Engine:
         self.window = Window(800, 600, "CompSoft")
 
         self.cam = Camera(vec3(0, 0, 0))
-        self.cam_controls = CameraControls(self.cam, self.window)
+        self.cam_controls = CameraControls(self.cam)
         self.scene = Scene(self.cam)
 
         self.pointer_state = PointerState()
         self.input_manager = InputManager(self.pointer_state)
         self.input_manager.add_binding(BINDING_CAMERA_PAN)
         self.input_manager.add_binding(BINDING_CAMERA_PAN_RELEASE)
-        self.input_manager.add_consumer(ViewportInputConsumer())
+        self.input_manager.add_consumer(
+            ViewportInputConsumer(self.cam_controls)
+        )
         self.window_bridge = WindowInputBridge(
             self.window.window, self.input_manager
         )
 
-        self.cam_controls.add_lmb_click_listener(
-            lambda pos: self.scene.select_on_click(
-                self.window.size[0], self.window.size[1], pos
-            )
-        )
+        # self.cam_controls.add_lmb_click_listener(
+        #    lambda pos: self.scene.select_on_click(
+        #        self.window.size[0], self.window.size[1], pos
+        #    )
+        # )
 
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
         sq_shader_pair = resources.get_shader_path("lit")
@@ -76,8 +78,7 @@ class Engine:
 
             # Goofy huh
             print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
-            self.input_manager.update()
-            self.cam_controls.update(self.window.dt)
+            self.input_manager.update(self.window.dt)
 
             t += self.window.dt * 100
             [

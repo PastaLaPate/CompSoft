@@ -4,6 +4,7 @@ from compsoft.input.cursors import CursorMode, CursorShape
 from compsoft.input.inputs import InputModifier, Inputs, TriggerMode
 from compsoft.input.state import PointerState
 from compsoft.input.window_bridge import WindowInputBridge
+from compsoft.scene.camera_controls import CameraControls
 
 BINDING_CAMERA_PAN = Binding(
     "camera.pan",
@@ -22,13 +23,21 @@ BINDING_CAMERA_PAN_RELEASE = Binding(
 
 
 class ViewportInputConsumer(InputConsumer):
-    def __init__(self, priority: int = 100):
+    def __init__(
+        self,
+        camera_controls: CameraControls,
+        priority: int = 100,
+        drag_threshold: float = 4.0,
+    ):
         super().__init__(priority)
+        self.camera_controls = camera_controls
+        self.drag_threshold = drag_threshold
         self.is_panning = False
 
     def on_action(
         self,
         action_id: str,
+        dt: float,
         value: float,
         pointer: PointerState,
         window: WindowInputBridge,
@@ -39,9 +48,7 @@ class ViewportInputConsumer(InputConsumer):
                 window.set_cursor_mode(CursorMode.DISABLED)
 
             if pointer.delta.x != 0 or pointer.delta.y != 0:
-                print(
-                    f"Panning Camera: dx={pointer.delta.x}, dy={pointer.delta.y}"
-                )
+                self.camera_controls.pan_camera(pointer.delta)
 
             return True
 
@@ -51,4 +58,12 @@ class ViewportInputConsumer(InputConsumer):
                 window.set_cursor_mode(CursorMode.NORMAL)
                 window.set_cursor_shape(CursorShape.ARROW)
             return True
+
+        """
+        dist = math.hypot(
+            current_x - self.lmb_press_pos[0],
+            current_y - self.lmb_press_pos[1],
+        )
+        """
+
         return False
