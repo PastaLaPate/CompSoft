@@ -15,3 +15,6 @@ class PointerState:
         self.drag_start_pos = vec2(0, 0)
         self.drag_threshold = 1
         self.active_drag_action: InputConsumer | None = None
+
+        # Scroll wheel
+        self.scroll_delta = vec2(0, 0)

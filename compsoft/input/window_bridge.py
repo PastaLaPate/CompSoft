@@ -1,7 +1,8 @@
 import glfw
 from glfw import _GLFWwindowPointerT
+from pyglm.glm import vec2
 
-from compsoft.input.inputs import Inputs
+from compsoft.input.inputs import Inputs, TriggerMode
 from compsoft.input.manager import InputManager
 
 
@@ -24,6 +25,8 @@ class WindowInputBridge:
             glfw.MOUSE_BUTTON_LEFT: Inputs.LMB,
             glfw.MOUSE_BUTTON_MIDDLE: Inputs.MMB,
             glfw.MOUSE_BUTTON_RIGHT: Inputs.RMB,
+            glfw.MOUSE_BUTTON_4: Inputs.MOUSE_4,
+            glfw.MOUSE_BUTTON_5: Inputs.MOUSE_5,
         }
 
         # Maps GLFW/QT keycodes to standard us layout
@@ -32,17 +35,29 @@ class WindowInputBridge:
     def _cursor_pos_callback(
         self, window: _GLFWwindowPointerT, xpos: float, ypos: float
     ) -> None:
-        pass
+        new_pos = vec2(xpos, ypos)
+        self.pointer.delta = new_pos - self.pointer.current_pos
+        self.pointer.last_pos = self.pointer.current_pos
+        self.pointer.current_pos = new_pos
 
     def _mouse_button_callback(
         self, window: _GLFWwindowPointerT, button: int, action: int, mods: int
     ) -> None:
-        pass
+        input_code = self.mouse_map.get(button)
+        if not input_code:
+            return
+
+        trigger = (
+            TriggerMode.PRESSED
+            if action == glfw.PRESS
+            else TriggerMode.RELEASED
+        )
+        self.input_mgr.handle_input_event(input_code, trigger)
 
     def _scroll_callback(
         self, window: _GLFWwindowPointerT, xoffset: float, yoffset: float
     ) -> None:
-        pass
+        self.pointer.scroll_delta = vec2(xoffset, yoffset)
 
     def _key_callback(
         self,
@@ -52,10 +67,14 @@ class WindowInputBridge:
         action: int,
         mods: int,
     ) -> None:
-        pass
+        input_code = self.scancode_map.get(scancode)
+        if not input_code:
+            return
 
-    def key_pressed(self, key: int) -> bool:
-        return glfw.get_key(self.window, key) == glfw.PRESS
+        if action == glfw.PRESS:
+            self.input_mgr.handle_input_event(input_code, TriggerMode.PRESSED)
+        elif action == glfw.RELEASE:
+            self.input_mgr.handle_input_event(input_code, TriggerMode.RELEASED)
 
     def _build_scancode_map(self) -> dict[int, Inputs]:
         key_map = {
