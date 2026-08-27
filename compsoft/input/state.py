@@ -21,3 +21,8 @@ class PointerState:
 
         # Scroll wheel
         self.scroll_delta = vec2(0, 0)
+
+    def begin_frame(self) -> None:
+        # Resets delta when frame begins
+        self.delta = vec2(0, 0)
+        self.scroll_delta = vec2(0, 0)

@@ -77,7 +77,16 @@ class WindowInputBridge:
         self, window: _GLFWwindowPointerT, xpos: float, ypos: float
     ) -> None:
         new_pos = vec2(xpos, ypos)
-        self.pointer.delta = new_pos - self.pointer.current_pos
+
+        if self.pointer.current_pos == vec2(
+            0, 0
+        ):  # Frame has begun, start state:
+            self.pointer.current_pos = new_pos
+            self.pointer.last_pos = new_pos
+            return
+
+        # Accumulate over the frame...
+        self.pointer.delta += new_pos - self.pointer.current_pos
         self.pointer.last_pos = self.pointer.current_pos
         self.pointer.current_pos = new_pos
 

@@ -85,6 +85,9 @@ class InputManager:
                 if self.dispatch_action(binding.id, val):
                     break
 
+    def begin_frame(self) -> None:
+        self.pointer.begin_frame()
+
     def update(self, dt: float) -> None:
         for key in self.active_keys:
             matching_bindings = [

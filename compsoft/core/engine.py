@@ -78,6 +78,8 @@ class Engine:
 
             # Goofy huh
             print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+            self.input_manager.begin_frame()
+            self.window.poll_events()
             self.input_manager.update(self.window.dt)
 
             t += self.window.dt * 100
@@ -102,7 +104,6 @@ class Engine:
             self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
 
             self.window.swap_buffers()
-            self.window.poll_events()
 
     def exit(self):
         self.fb.destroy()
