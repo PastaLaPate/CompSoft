@@ -9,6 +9,8 @@ from compsoft.graphics.frame_buffer import FrameBuffer
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.input.consumers.viewport_consumer import (
+    BINDING_CAMERA_ORBIT,
+    BINDING_CAMERA_ORBIT_RELEASE,
     BINDING_CAMERA_PAN,
     BINDING_CAMERA_PAN_RELEASE,
     ViewportInputConsumer,
@@ -36,6 +38,8 @@ class Engine:
         self.input_manager = InputManager(self.pointer_state)
         self.input_manager.add_binding(BINDING_CAMERA_PAN)
         self.input_manager.add_binding(BINDING_CAMERA_PAN_RELEASE)
+        self.input_manager.add_binding(BINDING_CAMERA_ORBIT)
+        self.input_manager.add_binding(BINDING_CAMERA_ORBIT_RELEASE)
         self.input_manager.add_consumer(
             ViewportInputConsumer(self.cam_controls)
         )

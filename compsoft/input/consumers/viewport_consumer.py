@@ -1,3 +1,7 @@
+import math
+
+from pyglm.glm import vec2
+
 from compsoft.input.binding import Binding
 from compsoft.input.consumer import InputConsumer
 from compsoft.input.cursors import CursorMode, CursorShape
@@ -21,6 +25,14 @@ BINDING_CAMERA_PAN_RELEASE = Binding(
     trigger_mode=TriggerMode.RELEASED,
 )
 
+BINDING_CAMERA_ORBIT = Binding(
+    "camera.orbit", Inputs.LMB, trigger_mode=TriggerMode.WHILE
+)
+
+BINDING_CAMERA_ORBIT_RELEASE = Binding(
+    "camera.orbit.release", Inputs.LMB, trigger_mode=TriggerMode.RELEASED
+)
+
 
 class ViewportInputConsumer(InputConsumer):
     def __init__(
@@ -33,6 +45,9 @@ class ViewportInputConsumer(InputConsumer):
         self.camera_controls = camera_controls
         self.drag_threshold = drag_threshold
         self.is_panning = False
+        self.is_lmb_clicking = False
+        self.is_orbiting = False
+        self.start_click_pos = vec2(0, 0)
 
     def on_action(
         self,
@@ -59,11 +74,29 @@ class ViewportInputConsumer(InputConsumer):
                 window.set_cursor_shape(CursorShape.ARROW)
             return True
 
-        """
-        dist = math.hypot(
-            current_x - self.lmb_press_pos[0],
-            current_y - self.lmb_press_pos[1],
-        )
-        """
+        if action_id == BINDING_CAMERA_ORBIT.id:
+            if not self.is_lmb_clicking:
+                self.is_lmb_clicking = True
+                self.start_click_pos = pointer.current_pos
+            elif self.is_lmb_clicking and not self.is_orbiting:
+                dist = math.hypot(
+                    pointer.current_pos.x - self.start_click_pos.x,
+                    pointer.current_pos.y - self.start_click_pos.y,
+                )
+                if dist > self.drag_threshold:
+                    self.is_orbiting = True
+                    window.set_cursor_mode(CursorMode.DISABLED)
+            elif self.is_orbiting:
+                self.camera_controls.orbit_camera(pointer.delta)
+            return True
+
+        if action_id == BINDING_CAMERA_ORBIT_RELEASE.id:
+            if not self.is_orbiting:
+                pass  # Register click for select
+            self.is_orbiting = False
+            self.is_lmb_clicking = False
+            window.set_cursor_mode(CursorMode.NORMAL)
+            window.set_cursor_shape(CursorShape.ARROW)
+            return True
 
         return False
