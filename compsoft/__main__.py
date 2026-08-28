@@ -117,3 +117,7 @@ def main():
 
     engine.start()
     engine.exit()
+
+
+if __name__ == "__main__":
+    main()

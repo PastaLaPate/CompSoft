@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import uuid
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from OpenGL.GL import (
@@ -28,10 +30,14 @@ from compsoft.scene.components.light import LightComponent, LightData
 from compsoft.scene.components.mesh import SimpleMeshComponent
 from compsoft.scene.gizmos.translation_gizmo import TranslationGizmo
 
+if TYPE_CHECKING:
+    from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
+
 
 class Scene:
-    def __init__(self, camera: Camera) -> None:
+    def __init__(self, camera: Camera, shadow_fb: ShadowFrameBuffer) -> None:
         self.camera = camera
+        self.shadow_fb = shadow_fb
 
         self.root_actors: list[Actor] = []
         self.registry: dict[uuid.UUID, Actor] = {}
@@ -184,6 +190,7 @@ class Scene:
     def register_light(self, light: LightComponent):
         if light not in self.active_lights:
             self.active_lights.append(light)
+            self.shadow_fb.new_light(light)
         self.upload_light_ubo(self.get_lights())
 
     def unregister_light(self, light: LightComponent):
@@ -211,3 +218,12 @@ class Scene:
             )
 
             self.debug.clear()
+
+    def render_shadow_map(self, light_view_projection: mat4):
+        for actor in self.root_actors:
+            actor.render(
+                1.0,
+                mat4(),
+                RenderPass.SHADOW,
+                light_view_projection=light_view_projection,
+            )  # pass identity

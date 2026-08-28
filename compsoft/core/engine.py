@@ -5,9 +5,9 @@ import glfw
 from pyglm.glm import vec3
 
 from compsoft.core.window import Window
+from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
 from compsoft.graphics.frame_buffer import FrameBuffer
-from compsoft.graphics.render_pass import RenderPass
-from compsoft.graphics.screen_quad import ScreenQuad
+from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
 from compsoft.input.consumers.viewport_consumer import (
     BINDING_BACKWARD,
     BINDING_CAMERA_FOV,
@@ -38,7 +38,8 @@ class Engine:
 
         self.cam = Camera(vec3(0, 0, 0))
         self.cam_controls = CameraControls(self.cam)
-        self.scene = Scene(self.cam)
+        self.shadows_fb = ShadowFrameBuffer(1)
+        self.scene = Scene(self.cam, self.shadows_fb)
 
         self.pointer_state = PointerState()
         self.input_manager = InputManager(self.pointer_state)
@@ -70,7 +71,8 @@ class Engine:
 
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
         sq_shader_pair = resources.get_shader_path("lit")
-        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
+        # self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
+        self.sq = DebugDepthScreenQuad()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
 
     def _add_prerender_listener(
@@ -106,6 +108,19 @@ class Engine:
                 listener(t, self.window.dt)
                 for listener in self.prerender_listeners
             ]
+
+            self.shadows_fb.render_light(
+                self.scene.active_lights[0], self.scene
+            )
+
+            _, depth_texture = self.shadows_fb.lights_depth_map[
+                self.scene.active_lights[0]
+            ]
+
+            self.sq.bind_shader()
+            self.sq.render(1024, 1024, depth_texture)
+
+            """
             self.fb.bind()
             self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
             self.fb.unbind()
@@ -121,6 +136,7 @@ class Engine:
                 self.scene.camera.pos,
             )
             self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
+            """
 
             self.window.swap_buffers()
 

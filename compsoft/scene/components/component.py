@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from glm import mat4x4
 from pyglm.glm import mat4
 
 from compsoft.graphics.render_pass import RenderPass
@@ -45,3 +46,8 @@ class RenderableComponent(ABC, Component):
 
     @abstractmethod
     def draw(self, aspect_ratio: float, world_model_matrix: mat4): ...
+
+    @abstractmethod
+    def draw_depth(
+        self, light_view_projection: mat4x4, world_model_matrix: mat4x4
+    ): ...

@@ -24,9 +24,10 @@ from OpenGL.GL import (
     glVertexAttribPointer,
 )
 from pyglm import glm
-from pyglm.glm import mat4, vec2, vec3, vec4
+from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
 from compsoft.core.debug import DebugFlags
+from compsoft.graphics.depth_material import DepthMaterial
 from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
 from compsoft.graphics.ray_trace import (
@@ -75,6 +76,8 @@ class SimpleMeshComponent(RenderableComponent):
 
         self._mat = material
         self._mat.bind_properties()
+        self._depth_material = DepthMaterial()
+        self._depth_material.bind_properties()
         self.dynamic = dynamic
         self.selected = False
 
@@ -674,11 +677,7 @@ class SimpleMeshComponent(RenderableComponent):
         glBufferData(target, data.nbytes, None, self.usage)
         glBufferSubData(target, 0, data.nbytes, data)
 
-    def draw(self, aspect_ratio: float, world_model_matrix: mat4):
-        """
-        Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix.
-        world_model_matrix is the accumulated transform matrice across the tree
-        """
+    def _draw_prepare(self, world_model_matrix: mat4x4) -> mat4x4 | None:
         if (
             self.vao == 0
             or self.ebo == 0
@@ -696,9 +695,24 @@ class SimpleMeshComponent(RenderableComponent):
             self._dirty_transformed_aabb = True
             self.world_space_matrix = world_model_matrix
 
-        world_model_matrix = cast(
-            mat4, world_model_matrix * self.get_transform_matrix()
-        )
+        return cast(mat4, world_model_matrix * self.get_transform_matrix())
+
+    def draw(self, aspect_ratio: float, world_model_matrix: mat4x4):
+        """
+        Draws the mesh using its attached Material. MVP is projection * view * each_parent_transform_matrix.
+        world_model_matrix is the accumulated transform matrice across the tree
+        """
+
+        p_world_model_matrix = self._draw_prepare(world_model_matrix)
+        if (
+            p_world_model_matrix is None
+            or self.parent is None
+            or self.parent.scene is None
+            or self.parent.scene.camera is None
+        ):
+            return
+        world_model_matrix = p_world_model_matrix
+
         normal_matrix = cast(
             mat4,
             glm.mat4(glm.transpose(glm.inverse(glm.mat3(world_model_matrix)))),
@@ -733,7 +747,20 @@ class SimpleMeshComponent(RenderableComponent):
                 vec3(1, 1, 1) if not self.selected else vec3(1, 0, 0),
             )
 
-        # draw the geometry
+        self._draw_geometry()
+
+    def draw_depth(
+        self, light_view_projection: mat4x4, world_model_matrix: mat4x4
+    ):
+        p_world_model_matrix = self._draw_prepare(world_model_matrix)
+        if p_world_model_matrix is None:
+            return
+
+        final_mvp = cast(mat4x4, light_view_projection * world_model_matrix)
+        self._depth_material.use(final_mvp)
+        self._draw_geometry()
+
+    def _draw_geometry(self):
         glBindVertexArray(self.vao)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
         glDrawElements(GL_TRIANGLES, self.index_count, GL_UNSIGNED_INT, None)

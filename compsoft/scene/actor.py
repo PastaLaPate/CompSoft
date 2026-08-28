@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from pyglm import glm
-from pyglm.glm import mat4, vec3
+from pyglm.glm import mat4, mat4x4, vec3
 
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.components.component import Component, RenderableComponent
@@ -99,7 +99,9 @@ class Actor:
         for component in self.components:
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
+    def get_component_by_type[T: Component](
+        self, component_cls: type[T]
+    ) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -114,7 +116,9 @@ class Actor:
                 return comp
         return None
 
-    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
+    def get_components_by_type[T: Component](
+        self, component_cls: type[T]
+    ) -> list[T]:
         comps = []
         for comp in self.components:
             if isinstance(comp, component_cls):
@@ -183,6 +187,7 @@ class Actor:
         aspect_ratio: float,
         parent_matrix: glm.mat4,
         render_pass: RenderPass,
+        light_view_projection: mat4x4 | None = None,
     ):
         world_model_matrix = cast(
             glm.mat4, parent_matrix * self.compute_transform_matrix()
@@ -190,5 +195,16 @@ class Actor:
         for r_comp in self.get_components_by_type(RenderableComponent):
             if render_pass == r_comp.RENDER_PASS:
                 r_comp.draw(aspect_ratio, world_model_matrix)
+            elif (
+                render_pass == RenderPass.SHADOW
+                and light_view_projection is not None
+            ):
+                r_comp.draw_depth(light_view_projection, world_model_matrix)
+
         for child in self.children:
-            child.render(aspect_ratio, world_model_matrix, render_pass)
+            child.render(
+                aspect_ratio,
+                world_model_matrix,
+                render_pass,
+                light_view_projection=light_view_projection,
+            )
