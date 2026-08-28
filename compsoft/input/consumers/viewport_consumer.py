@@ -136,7 +136,7 @@ class ViewportInputConsumer(InputConsumer):
             return True
 
         if action_id == BINDING_CAMERA_SPEED.id:
-            self.camera_controls.add_speed(value * 0.5)
+            self.camera_controls.add_speed(value * 0.2)
             return True
         if action_id == BINDING_CAMERA_FOV.id:
             self.camera_controls.add_fov(int(value * 5))
