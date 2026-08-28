@@ -64,6 +64,8 @@ class WindowInputBridge:
                     self.window, glfw.CURSOR, glfw.CURSOR_HIDDEN
                 )
             case CursorMode.DISABLED:
+                # Fixes the cursor not actually being disabled
+                glfw.set_cursor(self.window, None)  # ty: ignore[invalid-argument-type]
                 glfw.set_input_mode(
                     self.window, glfw.CURSOR, glfw.CURSOR_DISABLED
                 )

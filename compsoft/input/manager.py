@@ -78,7 +78,14 @@ class InputManager:
         matching_bindings.sort(key=lambda b: b.chord_weight, reverse=True)
 
         for binding in matching_bindings:
-            if binding.modifier == eval_modifiers:
+            if binding.modifier == InputModifier.NONE:
+                matched = eval_modifiers == InputModifier.NONE
+            else:
+                matched = (
+                    eval_modifiers & binding.modifier
+                ) == binding.modifier
+
+            if matched:
                 val = (
                     (
                         1.0

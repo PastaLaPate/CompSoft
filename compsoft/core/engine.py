@@ -46,7 +46,6 @@ class Engine:
         self.window_bridge = WindowInputBridge(
             self.window.window, self.input_manager
         )
-
         # self.cam_controls.add_lmb_click_listener(
         #    lambda pos: self.scene.select_on_click(
         #        self.window.size[0], self.window.size[1], pos
@@ -81,7 +80,7 @@ class Engine:
             fps = 1000.0 / avg_ms
 
             # Goofy huh
-            print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+            # print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
             self.input_manager.begin_frame()
             self.window.poll_events()
             self.input_manager.update(self.window.dt)
