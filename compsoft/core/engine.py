@@ -10,10 +10,12 @@ from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.input.consumers.viewport_consumer import (
     BINDING_BACKWARD,
+    BINDING_CAMERA_FOV,
     BINDING_CAMERA_ORBIT,
     BINDING_CAMERA_ORBIT_RELEASE,
     BINDING_CAMERA_PAN,
     BINDING_CAMERA_PAN_RELEASE,
+    BINDING_CAMERA_SPEED,
     BINDING_FORWARD,
     BINDING_LEFT,
     BINDING_RIGHT,
@@ -50,6 +52,9 @@ class Engine:
         self.input_manager.add_binding(BINDING_BACKWARD)
         self.input_manager.add_binding(BINDING_LEFT)
         self.input_manager.add_binding(BINDING_RIGHT)
+
+        self.input_manager.add_binding(BINDING_CAMERA_SPEED)
+        self.input_manager.add_binding(BINDING_CAMERA_FOV)
 
         self.input_manager.add_consumer(
             ViewportInputConsumer(self.cam_controls)

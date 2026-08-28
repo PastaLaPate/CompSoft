@@ -46,6 +46,16 @@ BINDING_RIGHT = Binding(
     "viewport.right", Inputs.D, trigger_mode=TriggerMode.WHILE
 )
 
+BINDING_CAMERA_SPEED = Binding(
+    "camera.speed", Inputs.MOUSE_WHEEL, trigger_mode=TriggerMode.AXIS_DELTA
+)
+BINDING_CAMERA_FOV = Binding(
+    "camera.fov",
+    Inputs.MOUSE_WHEEL,
+    modifier=InputModifier.CTRL,
+    trigger_mode=TriggerMode.AXIS_DELTA,
+)
+
 
 class ViewportInputConsumer(InputConsumer):
     def __init__(
@@ -123,6 +133,13 @@ class ViewportInputConsumer(InputConsumer):
             return True
         if action_id == BINDING_RIGHT.id:
             self.camera_controls.right(dt)
+            return True
+
+        if action_id == BINDING_CAMERA_SPEED.id:
+            self.camera_controls.add_speed(value * 0.5)
+            return True
+        if action_id == BINDING_CAMERA_FOV.id:
+            self.camera_controls.add_fov(int(value * 5))
             return True
 
         return False
