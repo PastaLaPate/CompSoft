@@ -33,6 +33,19 @@ BINDING_CAMERA_ORBIT_RELEASE = Binding(
     "camera.orbit.release", Inputs.LMB, trigger_mode=TriggerMode.RELEASED
 )
 
+BINDING_FORWARD = Binding(
+    "viewport.forward", Inputs.W, trigger_mode=TriggerMode.WHILE
+)
+BINDING_BACKWARD = Binding(
+    "viewport.backward", Inputs.S, trigger_mode=TriggerMode.WHILE
+)
+BINDING_LEFT = Binding(
+    "viewport.left", Inputs.A, trigger_mode=TriggerMode.WHILE
+)
+BINDING_RIGHT = Binding(
+    "viewport.right", Inputs.D, trigger_mode=TriggerMode.WHILE
+)
+
 
 class ViewportInputConsumer(InputConsumer):
     def __init__(
@@ -97,6 +110,19 @@ class ViewportInputConsumer(InputConsumer):
             self.is_lmb_clicking = False
             window.set_cursor_mode(CursorMode.NORMAL)
             window.set_cursor_shape(CursorShape.ARROW)
+            return True
+
+        if action_id == BINDING_FORWARD.id:
+            self.camera_controls.forward(dt)
+            return True
+        if action_id == BINDING_BACKWARD.id:
+            self.camera_controls.backward(dt)
+            return True
+        if action_id == BINDING_LEFT.id:
+            self.camera_controls.left(dt)
+            return True
+        if action_id == BINDING_RIGHT.id:
+            self.camera_controls.right(dt)
             return True
 
         return False

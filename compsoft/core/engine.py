@@ -9,10 +9,14 @@ from compsoft.graphics.frame_buffer import FrameBuffer
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.input.consumers.viewport_consumer import (
+    BINDING_BACKWARD,
     BINDING_CAMERA_ORBIT,
     BINDING_CAMERA_ORBIT_RELEASE,
     BINDING_CAMERA_PAN,
     BINDING_CAMERA_PAN_RELEASE,
+    BINDING_FORWARD,
+    BINDING_LEFT,
+    BINDING_RIGHT,
     ViewportInputConsumer,
 )
 from compsoft.input.manager import InputManager
@@ -36,10 +40,17 @@ class Engine:
 
         self.pointer_state = PointerState()
         self.input_manager = InputManager(self.pointer_state)
+
         self.input_manager.add_binding(BINDING_CAMERA_PAN)
         self.input_manager.add_binding(BINDING_CAMERA_PAN_RELEASE)
         self.input_manager.add_binding(BINDING_CAMERA_ORBIT)
         self.input_manager.add_binding(BINDING_CAMERA_ORBIT_RELEASE)
+
+        self.input_manager.add_binding(BINDING_FORWARD)
+        self.input_manager.add_binding(BINDING_BACKWARD)
+        self.input_manager.add_binding(BINDING_LEFT)
+        self.input_manager.add_binding(BINDING_RIGHT)
+
         self.input_manager.add_consumer(
             ViewportInputConsumer(self.cam_controls)
         )
@@ -80,7 +91,7 @@ class Engine:
             fps = 1000.0 / avg_ms
 
             # Goofy huh
-            # print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+            print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
             self.input_manager.begin_frame()
             self.window.poll_events()
             self.input_manager.update(self.window.dt)
