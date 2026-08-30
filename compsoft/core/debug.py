@@ -33,6 +33,7 @@ class DebugFlags(IntFlag):
     DEBUG_NONE = 0
     DEBUG_MESH_AABB = auto()
     DEBUG_SELECTION_RAYCAST = auto()
+    DEBUG_RENDER_SHADOW_MAP = auto()
 
     DEBUG_ALL = DEBUG_MESH_AABB | DEBUG_SELECTION_RAYCAST
     # fmt: on

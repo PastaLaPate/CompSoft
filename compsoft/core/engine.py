@@ -4,9 +4,12 @@ from collections.abc import Callable
 import glfw
 from pyglm.glm import vec3
 
+from compsoft.core.debug import DebugFlags
 from compsoft.core.window import Window
 from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
 from compsoft.graphics.frame_buffer import FrameBuffer
+from compsoft.graphics.render_pass import RenderPass
+from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
 from compsoft.input.consumers.viewport_consumer import (
     BINDING_BACKWARD,
@@ -71,9 +74,14 @@ class Engine:
 
         self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
         sq_shader_pair = resources.get_shader_path("lit")
-        # self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
-        self.sq = DebugDepthScreenQuad()
+        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
+        self.debug_depth_sq = None
+        if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
+            self.construct_debug_depth_sq()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
+
+    def construct_debug_depth_sq(self):
+        self.debug_depth_sq = DebugDepthScreenQuad()
 
     def _add_prerender_listener(
         self, listener: Callable[[float, float], None]
@@ -109,33 +117,48 @@ class Engine:
                 for listener in self.prerender_listeners
             ]
 
-            self.shadows_fb.render_light(
-                self.scene.active_lights[0], self.scene
-            )
-            _, depth_texture = self.shadows_fb.lights_depth_map[
-                self.scene.active_lights[0]
-            ]
+            if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
+                if self.debug_depth_sq is None:
+                    self.construct_debug_depth_sq()
+                if self.debug_depth_sq:
+                    self.shadows_fb.render_light(
+                        self.scene.active_lights[0], self.scene
+                    )
+                    self.debug_depth_sq.bind_shader()
+                    self.debug_depth_sq.render(
+                        1024,
+                        1024,
+                        position_tex=0,
+                        shadows_tex=self.shadows_fb.shadow_array_tex,
+                    )
+            else:
+                self.fb.bind()
+                self.scene.render(
+                    self.window.aspect_ratio, RenderPass.DEFERRED
+                )
+                self.fb.unbind()
+                self.scene.upload_light_ubo(self.scene.get_lights())
 
-            self.sq.bind_shader()
-            self.sq.render(1024, 1024, depth_texture)
+                light_space_matrices = {}
+                for active_light in self.scene.active_lights:
+                    index = self.shadows_fb.get_light_layer(active_light)
+                    matrix = self.shadows_fb.render_light(
+                        active_light, self.scene
+                    )
+                    light_space_matrices[index] = matrix
 
-            """
-            self.fb.bind()
-            self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
-            self.fb.unbind()
-            self.scene.upload_light_ubo(self.scene.get_lights())
-            self.sq.bind_shader()
-            self.sq.render(
-                self.window.size[0],
-                self.window.size[1],
-                self.fb.position_tex,
-                self.fb.normal_tex,
-                self.fb.color_tex,
-                self.fb.selection_tex,
-                self.scene.camera.pos,
-            )
-            self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
-            """
+                self.sq.bind_shader(light_space_matrices)
+                self.sq.render(
+                    self.window.size[0],
+                    self.window.size[1],
+                    self.fb.position_tex,
+                    self.fb.normal_tex,
+                    self.fb.color_tex,
+                    self.fb.selection_tex,
+                    self.shadows_fb.shadow_array_tex,
+                    self.scene.camera.pos,
+                )
+                self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
 
             self.window.swap_buffers()
 

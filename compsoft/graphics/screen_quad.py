@@ -12,7 +12,9 @@ from OpenGL.GL import (
     GL_TEXTURE1,
     GL_TEXTURE2,
     GL_TEXTURE3,
+    GL_TEXTURE4,
     GL_TEXTURE_2D,
+    GL_TEXTURE_2D_ARRAY,
     GL_TRIANGLES,
     glActiveTexture,
     glBindBuffer,
@@ -31,7 +33,7 @@ from OpenGL.GL import (
     glUniformBlockBinding,
     glVertexAttribPointer,
 )
-from pyglm.glm import vec2, vec3
+from pyglm.glm import mat4x4, vec2, vec3
 
 from compsoft.graphics.shader import Shader
 
@@ -77,13 +79,20 @@ class ScreenQuad:
         glBindVertexArray(0)
         self.shader = Shader(passthrough_vert_path, postprocess_frag_path)
 
-    def bind_shader(self):
+    def bind_shader(self, light_space_matrices: dict[int, mat4x4]):
         glDisable(GL_DEPTH_TEST)
         self.shader.use()
         block_index = glGetUniformBlockIndex(
             self.shader.program_id, "LightingBlock"
         )
         glUniformBlockBinding(self.shader.program_id, block_index, 0)
+        self.upload_light_space_matrices(light_space_matrices)
+
+    def upload_light_space_matrices(self, matrices: dict[int, mat4x4]):
+        for light_i, matrix in matrices.items():
+            self.shader.set_uniform_matrix(
+                f"lightSpaceMatrices[{light_i}]", matrix
+            )
 
     def render(
         self,
@@ -93,6 +102,7 @@ class ScreenQuad:
         normal_tex: int,
         color_tex: int,
         selected_tex: int,
+        shadows_tex: int,
         camera_pos: vec3,
     ):
 
@@ -104,11 +114,14 @@ class ScreenQuad:
         glBindTexture(GL_TEXTURE_2D, color_tex)
         glActiveTexture(GL_TEXTURE3)
         glBindTexture(GL_TEXTURE_2D, selected_tex)
+        glActiveTexture(GL_TEXTURE4)
+        glBindTexture(GL_TEXTURE_2D_ARRAY, shadows_tex)
 
         self.shader.set_uniform_i("positionTexture", 0)
         self.shader.set_uniform_i("normalTexture", 1)
         self.shader.set_uniform_i("colorTexture", 2)
         self.shader.set_uniform_i("selectionTexture", 3)
+        self.shader.set_uniform_i("shadowMapArray", 4)
 
         self.shader.set_uniform_vec2(
             "u_TexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)

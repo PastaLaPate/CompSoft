@@ -190,7 +190,7 @@ class Scene:
     def register_light(self, light: LightComponent):
         if light not in self.active_lights:
             self.active_lights.append(light)
-            self.shadow_fb.new_light(light)
+            self.shadow_fb.get_light_layer(light)
         self.upload_light_ubo(self.get_lights())
 
     def unregister_light(self, light: LightComponent):
