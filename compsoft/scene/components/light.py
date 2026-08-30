@@ -55,8 +55,8 @@ class LightData:
 
     BLOCK_DTYPE = np.dtype(
         [
-            ("u_lights", LIGHT_DTYPE, 8),
-            ("u_active_light_count", np.int32),
+            ("uLights", LIGHT_DTYPE, 8),
+            ("uActiveLightCount", np.int32),
             (
                 "_pad_block",
                 np.int32,
@@ -166,7 +166,9 @@ class DirectionalLight(LightComponent):
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
             local_forward = vec3(
                 wrld_matrix
-                * glm.vec4(local_forward.x, local_forward.y, local_forward.z, 0.0)
+                * glm.vec4(
+                    local_forward.x, local_forward.y, local_forward.z, 0.0
+                )
             )
 
         return LightData(

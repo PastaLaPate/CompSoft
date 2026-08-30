@@ -24,4 +24,4 @@ class DepthMaterial(Material):
     ):
         self.shader.use()
 
-        self.shader.set_uniform_matrix("MVP", mvp_matrix)
+        self.shader.set_uniform_matrix("uMVP", mvp_matrix)

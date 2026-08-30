@@ -40,8 +40,8 @@ class DebugDepthScreenQuad(ScreenQuad):
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D_ARRAY, shadows_tex)
 
-        self.shader.set_uniform_i("shadowMapArray", 0)
-        self.shader.set_uniform_i("debugLayer", position_tex)
+        self.shader.set_uniform_i("uShadowMapArray", 0)
+        self.shader.set_uniform_i("uDebugLayer", position_tex)
 
         glBindVertexArray(self.vxt)
         glDrawArrays(GL_TRIANGLES, 0, 6)

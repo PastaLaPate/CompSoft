@@ -34,8 +34,8 @@ class Material:
     def bind_properties(self):
         glUseProgram(self.shader.program_id)
 
-        self.shader.set_uniform_i("albedo", 0)
-        self.shader.set_uniform_i("normal", 1)
+        self.shader.set_uniform_i("uAlbedo", 0)
+        self.shader.set_uniform_i("uNormal", 1)
 
     def use(
         self,
@@ -55,9 +55,9 @@ class Material:
             glActiveTexture(GL_TEXTURE1)
             glBindTexture(GL_TEXTURE_2D, self.normal)
 
-        self.shader.set_uniform_matrix("MVP", mvp_matrix)
-        self.shader.set_uniform_matrix("M", model_matrix)
-        self.shader.set_uniform_matrix("V", view_matrix)
-        self.shader.set_uniform_matrix("NormalMatrix", normal_matrix)
-        self.shader.set_uniform_vec3("cameraPosition_worldspace", cam_pos)
-        self.shader.set_uniform_bool("u_IsSelected", selected)
+        self.shader.set_uniform_matrix("uMVP", mvp_matrix)
+        self.shader.set_uniform_matrix("uModel", model_matrix)
+        self.shader.set_uniform_matrix("uV", view_matrix)
+        self.shader.set_uniform_matrix("uNormalMatrix", normal_matrix)
+        self.shader.set_uniform_vec3("uCameraPosition_W", cam_pos)
+        self.shader.set_uniform_bool("uIsSelected", selected)

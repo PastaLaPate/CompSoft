@@ -146,12 +146,12 @@ class Scene:
         upload_data = np.zeros(1, dtype=LightData.BLOCK_DTYPE)
 
         light_count = min(len(lights), 8)
-        upload_data["u_active_light_count"] = light_count
+        upload_data["uActiveLightCount"] = light_count
 
         for i in range(light_count):
             light_comp = lights[i]
 
-            upload_data["u_lights"][0][i] = light_comp.to_dtype()
+            upload_data["uLights"][0][i] = light_comp.to_dtype()
 
         glBindBuffer(GL_UNIFORM_BUFFER, self.lights_ubo_id)
         glBufferSubData(

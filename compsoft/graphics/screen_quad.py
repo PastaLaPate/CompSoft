@@ -92,7 +92,7 @@ class ScreenQuad:
     def upload_light_space_matrices(self, matrices: dict[int, mat4x4]):
         for light_i, matrix in matrices.items():
             self.shader.set_uniform_matrix(
-                f"lightSpaceMatrices[{light_i}]", matrix
+                f"uLightSpaceMatrices[{light_i}]", matrix
             )
 
     def render(
@@ -119,18 +119,18 @@ class ScreenQuad:
 
         glViewport(0, 0, screen_width, screen_height)
 
-        self.shader.set_uniform_i("positionTexture", 0)
-        self.shader.set_uniform_i("normalTexture", 1)
-        self.shader.set_uniform_i("colorTexture", 2)
-        self.shader.set_uniform_i("selectionTexture", 3)
-        self.shader.set_uniform_i("shadowMapArray", 4)
+        self.shader.set_uniform_i("uPosition", 0)
+        self.shader.set_uniform_i("uNormal", 1)
+        self.shader.set_uniform_i("uColor", 2)
+        self.shader.set_uniform_i("uSelection", 3)
+        self.shader.set_uniform_i("uShadowMapArray", 4)
 
         self.shader.set_uniform_vec2(
             "u_TexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)
         )
 
-        self.shader.set_uniform_vec3("cameraPos", camera_pos)
-        self.shader.set_uniform_float("time", float(glfw.get_time() * 10.0))
+        self.shader.set_uniform_vec3("uCameraPos", camera_pos)
+        self.shader.set_uniform_float("uTime", float(glfw.get_time() * 10.0))
 
         glBindVertexArray(self.vxt)
         glDrawArrays(GL_TRIANGLES, 0, 6)
