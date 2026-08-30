@@ -12,6 +12,10 @@ from compsoft.graphics.frame_buffer import FrameBuffer
 from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.screen_quad import ScreenQuad
 from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
+from compsoft.input.consumers.scene_click_consumer import (
+    BINDING_SCENE_LMB_CLICK,
+    SceneClickConsumer,
+)
 from compsoft.input.consumers.viewport_consumer import (
     BINDING_BACKWARD,
     BINDING_CAMERA_FOV,
@@ -61,9 +65,12 @@ class Engine:
         self.input_manager.add_binding(BINDING_CAMERA_SPEED)
         self.input_manager.add_binding(BINDING_CAMERA_FOV)
 
+        self.input_manager.add_binding(BINDING_SCENE_LMB_CLICK)
+
         self.input_manager.add_consumer(
             ViewportInputConsumer(self.cam_controls)
         )
+        self.input_manager.add_consumer(SceneClickConsumer(self.scene))
         self.window_bridge = WindowInputBridge(
             self.window.window, self.input_manager
         )

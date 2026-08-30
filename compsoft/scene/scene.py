@@ -49,10 +49,16 @@ class Scene:
 
         self.translation_gizmo = self.add_actor(TranslationGizmo())
 
-    def select_on_click(self, w: int, h: int, pos: vec2):
-        ndc_x = (pos.x / w) * 2.0 - 1.0
+    def on_click(self, w: int, h: int, pos: vec2) -> bool:
+        ray_o, ray_d = self.compute_ray(w, h, pos)
+        return self.select_component(ray_o, ray_d)
+
+    def compute_ray(
+        self, w: int, h: int, cursor_pos: vec2
+    ) -> tuple[vec4, vec4]:
+        ndc_x = (cursor_pos.x / w) * 2.0 - 1.0
         ndc_y = (
-            1.0 - (pos.y / h) * 2.0
+            1.0 - (cursor_pos.y / h) * 2.0
         )  # Y Inverse because opengl decided to render upside down or smth
 
         ray_start = vec4(ndc_x, ndc_y, -1.0, 1.0)
@@ -79,7 +85,9 @@ class Scene:
             self.debug_rays.append(
                 (vec3(ray_start_world), vec3(ray_start_world + 10 * ray_dir))
             )
+        return (ray_start_world, ray_dir)
 
+    def select_component(self, ray_origin: vec4, ray_dir: vec4) -> bool:
         all_mesh_components = []
 
         for actor in self.root_actors:
@@ -89,7 +97,7 @@ class Scene:
             comp
             for comp in all_mesh_components
             if ray_aabb_intersect(
-                RayTrace(vec3(ray_start_world), vec3(ray_dir)),
+                RayTrace(vec3(ray_origin), vec3(ray_dir)),
                 comp.get_transformed_bounding_box(),
                 RayType.Ray,
             )[0]
@@ -102,7 +110,7 @@ class Scene:
         closest_t = float("inf")
         for comp in mesh_components:
             intersects, t = comp.ray_intersects(
-                vec3(ray_start_world), vec3(ray_dir), False
+                vec3(ray_origin), vec3(ray_dir), False
             )
             if intersects and t < closest_t:
                 closest_t = t
@@ -112,10 +120,10 @@ class Scene:
             comp.selected = False
 
         if closest_comp and closest_comp.parent:
-            print("Selected: ", closest_comp.parent.id)
             closest_comp.selected = True
+            return True
         else:
-            print("Void :/")
+            return False
 
     def get_mesh_components(self, actor: Actor) -> list[SimpleMeshComponent]:
         components = []

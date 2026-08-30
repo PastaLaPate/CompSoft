@@ -18,3 +18,16 @@ class Binding:
     def chord_weight(self) -> int:
         """Higher modifier count takes priority (eg Shift+MMB over MMB)."""
         return self.modifier.value.bit_count()
+
+    def __eq__(self, other):
+        if isinstance(other, Binding):
+            return (
+                other.id == self.id
+                and other.input == self.input
+                and other.trigger_mode == self.trigger_mode
+                and other.modifier == self.modifier
+            )
+        elif isinstance(other, str):
+            return self.id == other
+        else:
+            return super().__eq__(other)

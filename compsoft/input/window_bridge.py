@@ -75,6 +75,15 @@ class WindowInputBridge:
         if cursor:
             glfw.set_cursor(self.window, cursor)
 
+    def get_width(self) -> int:
+        return glfw.get_window_size(self.window)[0]
+
+    def get_height(self) -> int:
+        return glfw.get_window_size(self.window)[1]
+
+    def get_size(self) -> tuple[int, int]:
+        return glfw.get_window_size(self.window)
+
     def _cursor_pos_callback(
         self, window: _GLFWwindowPointerT, xpos: float, ypos: float
     ) -> None:
