@@ -6,7 +6,7 @@ from uuid import UUID
 from pyglm import glm
 from pyglm.glm import mat4, mat4x4, vec3
 
-from compsoft.graphics.render_pass import RenderPass
+from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.scene.components.component import Component, RenderableComponent
 
 if TYPE_CHECKING:

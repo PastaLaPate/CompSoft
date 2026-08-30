@@ -9,7 +9,7 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat4, vec3
 
-from compsoft.graphics.material import Material
+from compsoft.graphics.materials.material import Material
 from compsoft.graphics.shader import Shader
 from compsoft.resources.manager import resources
 from compsoft.resources.textures import TextureRegistry

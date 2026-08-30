@@ -12,7 +12,7 @@ from OpenGL.GL import (
     glEnable,
 )
 
-from compsoft.graphics.screen_quad import ScreenQuad
+from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
 from compsoft.resources.manager import resources
 
 

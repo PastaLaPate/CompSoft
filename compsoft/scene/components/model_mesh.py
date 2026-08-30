@@ -3,7 +3,7 @@ from pathlib import Path
 import trimesh
 from glm import vec2, vec3
 
-from compsoft.graphics.material import Material
+from compsoft.graphics.materials.material import Material
 from compsoft.scene.components.mesh import SimpleMeshComponent
 
 
@@ -32,7 +32,9 @@ class ModelMeshComponent(SimpleMeshComponent):
                 uvs_output.append((uv0, uv1, uv2))
             else:
                 # fallback
-                uvs_output.append((vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0)))
+                uvs_output.append(
+                    (vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0))
+                )
 
         super().__init__(
             triangles=triangles_output,

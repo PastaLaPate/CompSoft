@@ -17,13 +17,13 @@ from pyglm import glm
 from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
 from compsoft.core.debug import Debug, DebugFlags
+from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.graphics.ray_trace import (
     IntersectResult,
     RayTrace,
     RayType,
     ray_aabb_intersect,
 )
-from compsoft.graphics.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
 from compsoft.scene.components.light import LightComponent, LightData
@@ -31,7 +31,9 @@ from compsoft.scene.components.mesh import SimpleMeshComponent
 from compsoft.scene.gizmos.translation_gizmo import TranslationGizmo
 
 if TYPE_CHECKING:
-    from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
+    from compsoft.graphics.infrastructure.shadows_frame_buffer import (
+        ShadowFrameBuffer,
+    )
 
 
 class Scene:

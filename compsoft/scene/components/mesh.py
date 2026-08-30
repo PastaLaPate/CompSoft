@@ -27,15 +27,15 @@ from pyglm import glm
 from pyglm.glm import mat4, mat4x4, vec2, vec3, vec4
 
 from compsoft.core.debug import DebugFlags
-from compsoft.graphics.depth_material import DepthMaterial
-from compsoft.graphics.light_material import LightMaterial
-from compsoft.graphics.material import Material
+from compsoft.graphics.infrastructure.render_pass import RenderPass
+from compsoft.graphics.materials.depth_material import DepthMaterial
+from compsoft.graphics.materials.light_material import LightMaterial
+from compsoft.graphics.materials.material import Material
 from compsoft.graphics.ray_trace import (
     IntersectResult,
     RayTrace,
     ray_tri_intersect,
 )
-from compsoft.graphics.render_pass import RenderPass
 from compsoft.graphics.vbo_indexer import index_vbo
 from compsoft.scene.components.component import RenderableComponent
 

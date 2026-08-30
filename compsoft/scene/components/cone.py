@@ -3,7 +3,7 @@ import math
 from glm import vec2
 from pyglm.glm import vec3
 
-from compsoft.graphics.material import Material
+from compsoft.graphics.materials.material import Material
 from compsoft.scene.components.mesh import SimpleMeshComponent
 
 

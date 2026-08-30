@@ -1,4 +1,4 @@
-from compsoft.graphics.light_material import LightMaterial
+from compsoft.graphics.materials.light_material import LightMaterial
 from compsoft.resources.textures import TextureRegistry
 
 

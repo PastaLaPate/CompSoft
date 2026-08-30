@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from glm import mat4x4
 from pyglm.glm import mat4
 
-from compsoft.graphics.render_pass import RenderPass
+from compsoft.graphics.infrastructure.render_pass import RenderPass
 
 if TYPE_CHECKING:
     from compsoft.scene.actor import Actor

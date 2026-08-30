@@ -8,10 +8,12 @@ from pyglm.glm import vec3
 from compsoft.core.debug import DebugFlags
 from compsoft.core.window import Window
 from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
-from compsoft.graphics.frame_buffer import FrameBuffer
-from compsoft.graphics.render_pass import RenderPass
-from compsoft.graphics.screen_quad import ScreenQuad
-from compsoft.graphics.shadows_frame_buffer import ShadowFrameBuffer
+from compsoft.graphics.infrastructure.frame_buffer import FrameBuffer
+from compsoft.graphics.infrastructure.render_pass import RenderPass
+from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
+from compsoft.graphics.infrastructure.shadows_frame_buffer import (
+    ShadowFrameBuffer,
+)
 from compsoft.input.consumers.scene_click_consumer import (
     BINDING_SCENE_LMB_CLICK,
     SceneClickConsumer,

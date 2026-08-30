@@ -7,9 +7,9 @@ from OpenGL import GL
 from OpenGL.GL.glget import glGetString
 
 from compsoft.core.engine import Engine
-from compsoft.graphics.light_material import LightMaterial
-from compsoft.graphics.material import Material
-from compsoft.graphics.render_pass import RenderPass
+from compsoft.graphics.infrastructure.render_pass import RenderPass
+from compsoft.graphics.materials.light_material import LightMaterial
+from compsoft.graphics.materials.material import Material
 from compsoft.resources.manager import resources
 from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
