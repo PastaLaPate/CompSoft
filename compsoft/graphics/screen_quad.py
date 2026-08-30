@@ -32,6 +32,7 @@ from OpenGL.GL import (
     glGetUniformBlockIndex,
     glUniformBlockBinding,
     glVertexAttribPointer,
+    glViewport,
 )
 from pyglm.glm import mat4x4, vec2, vec3
 
@@ -105,7 +106,6 @@ class ScreenQuad:
         shadows_tex: int,
         camera_pos: vec3,
     ):
-
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, position_tex)
         glActiveTexture(GL_TEXTURE1)
@@ -116,6 +116,8 @@ class ScreenQuad:
         glBindTexture(GL_TEXTURE_2D, selected_tex)
         glActiveTexture(GL_TEXTURE4)
         glBindTexture(GL_TEXTURE_2D_ARRAY, shadows_tex)
+
+        glViewport(0, 0, screen_width, screen_height)
 
         self.shader.set_uniform_i("positionTexture", 0)
         self.shader.set_uniform_i("normalTexture", 1)
