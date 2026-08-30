@@ -28,8 +28,31 @@ layout(std140) uniform LightingBlock {
   int u_active_light_count;
 };
 
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
+  vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+  projCoords = projCoords * 0.5 + 0.5;
+  if (projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 ||
+      projCoords.y > 1.0 || projCoords.z > 1.0)
+    return 0.0;
+
+  float currentDepth = projCoords.z;
+
+  float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.01);
+  float shadow = 0.0;
+  vec2 texelSize = (1.0 / textureSize(shadowMapArray, 0)).xy;
+  for (int x = -1; x <= 1; ++x) {
+    for (int y = -1; y <= 1; ++y) {
+      float pcfDepth = texture(shadowMapArray,
+                               vec3(projCoords.xy + vec2(x, y) * texelSize, 0))
+                           .r;
+      shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+    }
+  }
+  shadow /= 9.0;
+  return shadow;
+}
+
 void main() {
-  // --- Existing Lighting Logic ---
   vec3 pos = texture(positionTexture, UV).rgb;
   vec3 normal = texture(normalTexture, UV).rgb;
   vec3 albedo = texture(colorTexture, UV).rgb;
@@ -37,7 +60,9 @@ void main() {
 
   vec3 EyeDirection = normalize(cameraPos - pos);
   vec3 FragToLight = normalize(u_lights[0].position - pos);
+  vec4 FragPosLightSpace = lightSpaceMatrices[0] * vec4(pos, 1.0);
 
+  float shadow = ShadowCalculation(FragPosLightSpace, normal, FragToLight);
   float theta = clamp(dot(normal, FragToLight), 0, 1);
   float distanceToLight = length(u_lights[0].position - pos);
   float attenuation = 1.0 / (1.0 + 0.1 * distanceToLight +
@@ -49,6 +74,7 @@ void main() {
   color =
       albedo * theta * u_lights[0].color * u_lights[0].intensity * attenuation +
       specular * u_lights[0].intensity * pow(alpha, 5) * attenuation;
+  color = color * (1 - shadow);
 
   // --- Depth-Aware Sobel Edge Detection ---
   float centerSel = texture(selectionTexture, UV).r;

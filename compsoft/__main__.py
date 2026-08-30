@@ -74,6 +74,7 @@ def main():
             LightMaterial(resources.get_texture_path("mc_dirt.png"))
         )
     )
+    light_actor.position = vec3(0, 10, 0)
     light_cube.RENDER_PASS = RenderPass.FORWARD
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
@@ -83,7 +84,7 @@ def main():
     cone_actor.add_component(SimpleConeComponent(mat)).load()
 
     cylinder_actor = scene.add_actor(Actor())
-    cylinder_actor.position = vec3(10, 5, 0)
+    cylinder_actor.position = vec3(10, 2, 0)
     cylinder_actor.add_component(SimpleCylinderComponent(mat)).load()
 
     hq_mat = Material(
@@ -110,7 +111,9 @@ def main():
 
     def tick(t: float, dt: float):
         light_actor.position = vec3(
-            math.cos(math.radians(t)) * 10, 10, math.sin(math.radians(t)) * 10
+            math.cos(math.radians(t / 10)) * 10,
+            10,
+            math.sin(math.radians(t / 10)) * 10,
         )
 
     engine._add_prerender_listener(tick)
