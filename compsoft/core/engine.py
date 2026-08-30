@@ -112,7 +112,6 @@ class Engine:
             self.shadows_fb.render_light(
                 self.scene.active_lights[0], self.scene
             )
-
             _, depth_texture = self.shadows_fb.lights_depth_map[
                 self.scene.active_lights[0]
             ]

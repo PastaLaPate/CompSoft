@@ -9,6 +9,7 @@ from OpenGL.GL.glget import glGetString
 from compsoft.core.engine import Engine
 from compsoft.graphics.light_material import LightMaterial
 from compsoft.graphics.material import Material
+from compsoft.graphics.render_pass import RenderPass
 from compsoft.resources.manager import resources
 from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
@@ -73,6 +74,7 @@ def main():
             LightMaterial(resources.get_texture_path("mc_dirt.png"))
         )
     )
+    light_cube.RENDER_PASS = RenderPass.FORWARD
     light_actor.add_component(PointLight()).intensity = 5
     light_cube.load()
 

@@ -2,6 +2,7 @@ from OpenGL.GL import (
     GL_DEPTH_ATTACHMENT,
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_COMPONENT,
+    GL_DEPTH_TEST,
     GL_FLOAT,
     GL_FRAMEBUFFER,
     GL_NEAREST,
@@ -16,6 +17,7 @@ from OpenGL.GL import (
     glBindTexture,
     glClear,
     glDrawBuffer,
+    glEnable,
     glFramebufferTexture2D,
     glGenFramebuffers,
     glGenTextures,
@@ -74,9 +76,10 @@ class ShadowFrameBuffer:
         fbo, texture = self.lights_depth_map[light]
         glViewport(0, 0, self.width, self.height)
         glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+        glEnable(GL_DEPTH_TEST)
         glClear(GL_DEPTH_BUFFER_BIT)
-        near, far = 0.1, 100
-        light_projection = glm.ortho(-10.0, 10.0, -10.0, 10.0, near, far)
+        near, far = 1, 50
+        light_projection = glm.ortho(-10, 10, -10, 10, near, far)
         light_view = glm.lookAt(
             light.get_data().position, vec3(0, 0, 0), vec3(0, 1, 0)
         )

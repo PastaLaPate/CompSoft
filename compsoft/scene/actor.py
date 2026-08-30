@@ -197,6 +197,8 @@ class Actor:
                 r_comp.draw(aspect_ratio, world_model_matrix)
             elif (
                 render_pass == RenderPass.SHADOW
+                and r_comp.RENDER_PASS
+                == RenderPass.DEFERRED  # Dont render lights
                 and light_view_projection is not None
             ):
                 r_comp.draw_depth(light_view_projection, world_model_matrix)
