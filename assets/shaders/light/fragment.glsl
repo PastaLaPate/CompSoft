@@ -1,12 +1,11 @@
 #version 330 core
 
-out vec3 color;
+out vec3 oColor;
 
-uniform sampler2D albedo;
-uniform sampler2D normal;
-in vec2 UV;
-in vec3 fragmentColor;
+uniform sampler2D uAlbedo;
+uniform sampler2D uNormal;
 
-void main() {
-  color = texture(albedo, UV).rgb * fragmentColor;
-}
+in vec2 vUV;
+in vec3 vColor;
+
+void main() { oColor = texture(uAlbedo, vUV).rgb * vColor; }

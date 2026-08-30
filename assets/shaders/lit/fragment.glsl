@@ -1,18 +1,7 @@
 #version 330 core
 
-in vec2 UV;
-out vec3 color;
-
-uniform sampler2D positionTexture;
-uniform sampler2D normalTexture;
-uniform sampler2D colorTexture;
-uniform sampler2D selectionTexture;
-uniform sampler2DArray shadowMapArray;
-uniform mat4 lightSpaceMatrices[8];
-
-uniform vec3 cameraPos;
-uniform vec2 u_TexelSize;
-uniform float time;
+in vec2 vTexCoords;
+out vec3 oColor;
 
 struct LightData {
   int type;
@@ -24,9 +13,20 @@ struct LightData {
 };
 
 layout(std140) uniform LightingBlock {
-  LightData u_lights[8];
-  int u_active_light_count;
+  LightData uLights[8];
+  int uActiveLightCount;
 };
+
+uniform sampler2D uPosition;
+uniform sampler2D uNormal;
+uniform sampler2D uColor;
+uniform sampler2D uSelection;
+uniform sampler2DArray uShadowMapArray;
+
+uniform mat4 uLightSpaceMatrices[8];
+uniform vec3 uCameraPos;
+uniform vec2 uTexelSize;
+uniform float uTime;
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
   vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
@@ -39,10 +39,10 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
 
   float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.01);
   float shadow = 0.0;
-  vec2 texelSize = (1.0 / textureSize(shadowMapArray, 0)).xy;
+  vec2 texelSize = (1.0 / textureSize(uShadowMapArray, 0)).xy;
   for (int x = -1; x <= 1; ++x) {
     for (int y = -1; y <= 1; ++y) {
-      float pcfDepth = texture(shadowMapArray,
+      float pcfDepth = texture(uShadowMapArray,
                                vec3(projCoords.xy + vec2(x, y) * texelSize, 0))
                            .r;
       shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
@@ -53,56 +53,56 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
 }
 
 void main() {
-  vec3 pos = texture(positionTexture, UV).rgb;
-  vec3 normal = texture(normalTexture, UV).rgb;
-  vec3 albedo = texture(colorTexture, UV).rgb;
-  float specular = texture(colorTexture, UV).a;
+  vec3 pos = texture(uPosition, vTexCoords).rgb;
+  vec3 normal = texture(uNormal, vTexCoords).rgb;
+  vec3 albedo = texture(uColor, vTexCoords).rgb;
+  float specular = texture(uColor, vTexCoords).a;
 
-  vec3 EyeDirection = normalize(cameraPos - pos);
-  vec3 FragToLight = normalize(u_lights[0].position - pos);
-  vec4 FragPosLightSpace = lightSpaceMatrices[0] * vec4(pos, 1.0);
+  vec3 eyeDirection = normalize(uCameraPos - pos);
+  vec3 fragToLight = normalize(uLights[0].position - pos);
+  vec4 fragPosLightSpace = uLightSpaceMatrices[0] * vec4(pos, 1.0);
 
-  float shadow = ShadowCalculation(FragPosLightSpace, normal, FragToLight);
-  float theta = clamp(dot(normal, FragToLight), 0, 1);
-  float distanceToLight = length(u_lights[0].position - pos);
+  float shadow = ShadowCalculation(fragPosLightSpace, normal, fragToLight);
+  float theta = clamp(dot(normal, fragToLight), 0, 1);
+  float distanceToLight = length(uLights[0].position - pos);
   float attenuation = 1.0 / (1.0 + 0.1 * distanceToLight +
                              0.01 * distanceToLight * distanceToLight);
 
-  vec3 LightReflectionDir = reflect(-FragToLight, normal);
-  float alpha = clamp(dot(EyeDirection, LightReflectionDir), 0, 1);
+  vec3 lightReflectionDir = reflect(-fragToLight, normal);
+  float alpha = clamp(dot(eyeDirection, lightReflectionDir), 0, 1);
 
-  color =
-      albedo * theta * u_lights[0].color * u_lights[0].intensity * attenuation +
-      specular * u_lights[0].intensity * pow(alpha, 5) * attenuation;
-  color = color * (1 - shadow);
+  oColor =
+      albedo * theta * uLights[0].color * uLights[0].intensity * attenuation +
+      specular * uLights[0].intensity * pow(alpha, 5) * attenuation;
+  oColor = oColor * (1 - shadow);
 
   // --- Depth-Aware Sobel Edge Detection ---
-  float centerSel = texture(selectionTexture, UV).r;
+  float centerSel = texture(uSelection, vTexCoords).r;
   float edge = 0.0;
 
   float outlineWidth = 4.0;
-  vec2 offset = u_TexelSize * outlineWidth;
+  vec2 offset = uTexelSize * outlineWidth;
 
   if (centerSel > 0.5) {
-    float distCenter = distance(cameraPos, pos);
+    float distCenter = distance(uCameraPos, pos);
 
     // Sample using the scaled offset
-    vec2 uvN = UV + vec2(0.0, offset.y);
-    vec2 uvS = UV + vec2(0.0, -offset.y);
-    vec2 uvE = UV + vec2(offset.x, 0.0);
-    vec2 uvW = UV + vec2(-offset.x, 0.0);
+    vec2 uvN = vTexCoords + vec2(0.0, offset.y);
+    vec2 uvS = vTexCoords + vec2(0.0, -offset.y);
+    vec2 uvE = vTexCoords + vec2(offset.x, 0.0);
+    vec2 uvW = vTexCoords + vec2(-offset.x, 0.0);
 
     // Neighbor Selection Values
-    float selN = texture(selectionTexture, uvN).r;
-    float selS = texture(selectionTexture, uvS).r;
-    float selE = texture(selectionTexture, uvE).r;
-    float selW = texture(selectionTexture, uvW).r;
+    float selN = texture(uSelection, uvN).r;
+    float selS = texture(uSelection, uvS).r;
+    float selE = texture(uSelection, uvE).r;
+    float selW = texture(uSelection, uvW).r;
 
     // Neighbor Positions
-    vec3 posN = texture(positionTexture, uvN).rgb;
-    vec3 posS = texture(positionTexture, uvS).rgb;
-    vec3 posE = texture(positionTexture, uvE).rgb;
-    vec3 posW = texture(positionTexture, uvW).rgb;
+    vec3 posN = texture(uPosition, uvN).rgb;
+    vec3 posS = texture(uPosition, uvS).rgb;
+    vec3 posE = texture(uPosition, uvE).rgb;
+    vec3 posW = texture(uPosition, uvW).rgb;
 
     // Check each neighbor. If it's unselected (a boundary), we check depth.
     // We only outline if the unselected neighbor is FURTHER away than the
@@ -110,22 +110,22 @@ void main() {
     // skybox/background correctly
 
     if (selN < 0.5 &&
-        (distance(cameraPos, posN) > distCenter || dot(posN, posN) < 0.001))
+        (distance(uCameraPos, posN) > distCenter || dot(posN, posN) < 0.001))
       edge += 1.0;
     if (selS < 0.5 &&
-        (distance(cameraPos, posS) > distCenter || dot(posS, posS) < 0.001))
+        (distance(uCameraPos, posS) > distCenter || dot(posS, posS) < 0.001))
       edge += 1.0;
     if (selE < 0.5 &&
-        (distance(cameraPos, posE) > distCenter || dot(posE, posE) < 0.001))
+        (distance(uCameraPos, posE) > distCenter || dot(posE, posE) < 0.001))
       edge += 1.0;
     if (selW < 0.5 &&
-        (distance(cameraPos, posW) > distCenter || dot(posW, posW) < 0.001))
+        (distance(uCameraPos, posW) > distCenter || dot(posW, posW) < 0.001))
       edge += 1.0;
   }
 
   vec3 outlineColor = vec3(0.0, 0.3, 0.9);
 
   if (edge > 0.1) {
-    color = outlineColor;
+    oColor = outlineColor;
   }
 }
