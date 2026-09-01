@@ -129,7 +129,7 @@ class FrameBuffer:
         glTexImage2D(
             GL_TEXTURE_2D,
             0,
-            GL_RGBA,  # More precision than ints
+            GL_RGBA16F,  # More precision than ints
             self.width,
             self.height,
             0,
