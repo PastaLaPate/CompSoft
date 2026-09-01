@@ -49,7 +49,7 @@ def main():
 
     scene = engine.scene
     scene.load()
-    # scene.debug.add_flag(DebugFlags.DEBUG_MESH_AABB)
+    # scene.debug.add_flag(DebugFlags.DEBUG_SELECTION_RAYCAST)
     scene.camera.pos = vec3(0, 7, 0)
     scene.camera.look_at(vec3(5, 10, 5))
 
@@ -98,6 +98,7 @@ def main():
 
     hq_actor = scene.add_actor(Actor())
     hq_actor.position = vec3(0, 5, 0)
+    hq_actor.rotation = vec3(0, 180, 0)
     hq_mesh = hq_actor.add_component(
         ModelMeshComponent(
             resources.get_model_path(

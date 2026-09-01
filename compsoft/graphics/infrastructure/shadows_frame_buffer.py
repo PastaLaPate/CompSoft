@@ -106,7 +106,7 @@ class ShadowFrameBuffer:
         glEnable(GL_DEPTH_TEST)
         glClear(GL_DEPTH_BUFFER_BIT)
 
-        near, far = 1, 50
+        near, far = 0.1, 50
         light_projection = glm.ortho(-10, 10, -10, 10, near, far)
         light_view = glm.lookAt(
             light.get_data().position, vec3(0, 0, 0), vec3(0, 1, 0)

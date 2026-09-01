@@ -2,7 +2,7 @@ from collections import deque
 from collections.abc import Callable
 
 import glfw
-from OpenGL.GL import GL_BACK, GL_FRONT, glCullFace
+from OpenGL.GL import GL_BACK, glCullFace
 from pyglm.glm import vec3
 
 from compsoft.core.debug import DebugFlags
@@ -149,7 +149,7 @@ class Engine:
                 self.fb.unbind()
                 self.scene.upload_light_ubo(self.scene.get_lights())
 
-                glCullFace(GL_FRONT)
+                # glCullFace(GL_FRONT)
                 light_space_matrices = {}
                 for active_light in self.scene.active_lights:
                     index = self.shadows_fb.get_light_layer(active_light)

@@ -31,7 +31,7 @@ class SceneClickConsumer(InputConsumer):
         pointer: PointerState,
         window: WindowInputBridge,
     ) -> bool:
-        if action_id == BINDING_SCENE_LMB_CLICK and value == 1.0:
+        if action_id == BINDING_SCENE_LMB_CLICK:
             return self.scene.on_click(*window.get_size(), pointer.current_pos)
 
         return False

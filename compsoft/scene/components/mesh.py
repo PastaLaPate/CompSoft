@@ -725,7 +725,6 @@ class SimpleMeshComponent(RenderableComponent):
             mat4,
             P * V * world_model_matrix,
         )
-
         self._mat.use(
             final_mvp,
             world_model_matrix,

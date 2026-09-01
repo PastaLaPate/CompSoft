@@ -122,6 +122,7 @@ class Scene:
             comp.selected = False
 
         if closest_comp and closest_comp.parent:
+            # print("selected", closest_comp)
             closest_comp.selected = True
             return True
         else:

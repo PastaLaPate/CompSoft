@@ -37,7 +37,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
 
   float currentDepth = projCoords.z;
 
-  float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.01);
+  float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.01) /
+               49.9; // 49.9: far_plane - near_plane
   float shadow = 0.0;
   vec2 texelSize = (1.0 / textureSize(uShadowMapArray, 0)).xy;
   for (int x = -1; x <= 1; ++x) {
@@ -73,7 +74,7 @@ void main() {
 
   oColor =
       albedo * theta * uLights[0].color * uLights[0].intensity * attenuation +
-      specular * uLights[0].intensity * pow(alpha, 5) * attenuation;
+      specular * theta * uLights[0].intensity * pow(alpha, 5) * attenuation;
   oColor = oColor * (1 - shadow);
 
   // --- Depth-Aware Sobel Edge Detection ---

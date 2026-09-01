@@ -115,7 +115,7 @@ class ViewportInputConsumer(InputConsumer):
 
         if action_id == BINDING_CAMERA_ORBIT_RELEASE.id:
             if not self.is_orbiting:
-                pass  # Register click for select
+                return False
             self.is_orbiting = False
             self.is_lmb_clicking = False
             window.set_cursor_mode(CursorMode.NORMAL)

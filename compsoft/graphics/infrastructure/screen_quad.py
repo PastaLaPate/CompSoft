@@ -126,7 +126,7 @@ class ScreenQuad:
         self.shader.set_uniform_i("uShadowMapArray", 4)
 
         self.shader.set_uniform_vec2(
-            "u_TexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)
+            "uTexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)
         )
 
         self.shader.set_uniform_vec3("uCameraPos", camera_pos)
