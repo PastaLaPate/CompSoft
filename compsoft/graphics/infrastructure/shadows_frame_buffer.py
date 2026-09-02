@@ -36,6 +36,7 @@ from compsoft.scene.components.light import LightComponent
 from compsoft.scene.scene import Scene
 
 MAX_SHADOW_LIGHTS = 8
+CASCADES_N = 4
 
 
 class ShadowFrameBuffer:
@@ -82,13 +83,13 @@ class ShadowFrameBuffer:
         glReadBuffer(GL_NONE)
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
-    def get_light_layer(self, light: LightComponent) -> int:
+    def get_light_layer(self, light: LightComponent, cascade: int = 0) -> int:
         if light not in self.light_layers:
             if len(self._available_layers) == 0:
                 raise RuntimeError("No more shadow texture available")
             layer = self._available_layers.popleft()
             self.light_layers[light] = layer
-        return self.light_layers[light]
+        return self.light_layers[light] * CASCADES_N + cascade
 
     def render_light(self, light: LightComponent, scene: Scene) -> mat4x4:
 

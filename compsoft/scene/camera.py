@@ -1,11 +1,14 @@
 import math
+from typing import cast
 
 from pyglm import glm
-from pyglm.glm import vec3
+from pyglm.glm import mat4x4, vec3, vec4
 
 
 class Camera:
-    def __init__(self, pos: vec3 | None = None, rot: vec3 | None = None) -> None:
+    def __init__(
+        self, pos: vec3 | None = None, rot: vec3 | None = None
+    ) -> None:
         self._pos = pos or vec3(0, 0, 0)
         self._rot = rot or vec3(0, 0, 0)
         self._fov = 90  # in degrees
@@ -141,3 +144,23 @@ class Camera:
             self.near_clipping_plane,  # Near clipping plane. Keep as big as possible, or you'll get precision issues.
             self.far_clipping_plane,  # Far clipping plane. Keep as little as possible
         )
+
+    def get_frustum_corners_world_space(self, aspect: float) -> list[vec4]:
+        inv = cast(
+            mat4x4,
+            glm.inverse(
+                self.get_projection_matrix(aspect) * self.get_view_matrix()
+            ),
+        )
+
+        corners = []
+        for x in range(2):  # 3 nested for loops of hell
+            for y in range(2):
+                for z in range(2):
+                    pt = cast(
+                        vec4,
+                        inv * vec4(2.0 * x - 1, 2.0 * y - 1, 2.0 * z - 1, 1),
+                    )
+                    corners.append(pt / pt.w)
+
+        return corners
