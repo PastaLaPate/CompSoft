@@ -5,12 +5,14 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from OpenGL.GL import (
+    GL_DEPTH_BUFFER_BIT,
     GL_DYNAMIC_DRAW,
     GL_UNIFORM_BUFFER,
     glBindBuffer,
     glBindBufferBase,
     glBufferData,
     glBufferSubData,
+    glClear,
     glGenBuffers,
 )
 from pyglm import glm
@@ -28,6 +30,7 @@ from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
 from compsoft.scene.components.light import LightComponent, LightData
 from compsoft.scene.components.mesh import SimpleMeshComponent
+from compsoft.scene.gizmos.axes import Axis
 from compsoft.scene.gizmos.translation_gizmo import TranslationGizmo
 
 if TYPE_CHECKING:
@@ -49,7 +52,8 @@ class Scene:
         self.debug = Debug()
         self.debug_rays = []
 
-        self.translation_gizmo = self.add_actor(TranslationGizmo())
+        self.translation_gizmo = TranslationGizmo()
+        self.translation_gizmo.set_scene(self)
 
     def on_click(self, w: int, h: int, pos: vec2) -> bool:
         ray_o, ray_d = self.compute_ray(w, h, pos)
@@ -89,6 +93,18 @@ class Scene:
             )
         return (ray_start_world, ray_dir)
 
+    def is_ray_on_gizmo(self, ray_origin: vec4, ray_dir: vec4) -> Axis | None:
+        current_gizmo = self.translation_gizmo
+
+        for axis in list(Axis):
+            components = current_gizmo.get_axis_components(axis)
+            for comp in components:
+                intersects, t = comp.ray_intersects(
+                    vec3(ray_origin), vec3(ray_dir), True
+                )
+                if intersects:
+                    return axis
+
     def select_component(self, ray_origin: vec4, ray_dir: vec4) -> bool:
         all_mesh_components = []
 
@@ -121,11 +137,19 @@ class Scene:
         for comp in all_mesh_components:
             comp.selected = False
 
-        if closest_comp and closest_comp.parent:
+        if closest_comp is not None and closest_comp.parent is not None:
             # print("selected", closest_comp)
             closest_comp.selected = True
+            for comp in closest_comp.parent.get_components_by_type(
+                SimpleMeshComponent
+            ):
+                comp.selected = True
+            self.translation_gizmo.selected_actor = None
+            self.translation_gizmo.position = closest_comp.parent.position
+            self.translation_gizmo.selected_actor = closest_comp.parent
             return True
         else:
+            self.translation_gizmo.selected_actor = None
             return False
 
     def get_mesh_components(self, actor: Actor) -> list[SimpleMeshComponent]:
@@ -170,7 +194,7 @@ class Scene:
         )
         glBindBuffer(GL_UNIFORM_BUFFER, 0)
 
-    def add_actor(self, actor: Actor, parent: Actor | None = None) -> Actor:
+    def add_actor[T: Actor](self, actor: T, parent: Actor | None = None) -> T:
         if parent:
             parent.add_child(actor)
         else:
@@ -229,6 +253,9 @@ class Scene:
             )
 
             self.debug.clear()
+
+            glClear(GL_DEPTH_BUFFER_BIT)
+            self.translation_gizmo.render(aspect_ratio, mat4(), render_pass)
 
     def render_shadow_map(self, light_view_projection: mat4):
         for actor in self.root_actors:

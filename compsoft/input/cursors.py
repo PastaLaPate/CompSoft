@@ -13,3 +13,4 @@ class CursorShape(Enum):
     CROSSHAIR = auto()
     HAND = auto()
     RESIZE_ALL = auto()
+    GRAB = auto()

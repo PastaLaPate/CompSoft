@@ -14,6 +14,11 @@ from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
 from compsoft.graphics.infrastructure.shadows_frame_buffer import (
     ShadowFrameBuffer,
 )
+from compsoft.input.consumers.gizmo_consumer import (
+    BINDING_GIZMO_CLICK,
+    BINDING_GIZMO_CLICK_RELEASE,
+    GizmoInputConsumer,
+)
 from compsoft.input.consumers.scene_click_consumer import (
     BINDING_SCENE_LMB_CLICK,
     SceneClickConsumer,
@@ -48,7 +53,7 @@ class Engine:
 
         self.cam = Camera(vec3(0, 0, 0))
         self.cam_controls = CameraControls(self.cam)
-        self.shadows_fb = ShadowFrameBuffer(4)
+        self.shadows_fb = ShadowFrameBuffer(5)
         self.scene = Scene(self.cam, self.shadows_fb)
 
         self.pointer_state = PointerState()
@@ -69,10 +74,14 @@ class Engine:
 
         self.input_manager.add_binding(BINDING_SCENE_LMB_CLICK)
 
+        self.input_manager.add_binding(BINDING_GIZMO_CLICK)
+        self.input_manager.add_binding(BINDING_GIZMO_CLICK_RELEASE)
+
         self.input_manager.add_consumer(
             ViewportInputConsumer(self.cam_controls)
         )
         self.input_manager.add_consumer(SceneClickConsumer(self.scene))
+        self.input_manager.add_consumer(GizmoInputConsumer(self.scene))
         self.window_bridge = WindowInputBridge(
             self.window.window, self.input_manager
         )

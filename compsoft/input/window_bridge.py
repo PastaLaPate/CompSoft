@@ -50,6 +50,7 @@ class WindowInputBridge:
             CursorShape.RESIZE_ALL: glfw.create_standard_cursor(
                 glfw.RESIZE_ALL_CURSOR
             ),
+            CursorShape.GRAB: glfw.create_standard_cursor(glfw.HAND_CURSOR),
         }
         self.scancode_map: dict[int, Inputs] = self._build_scancode_map()
 

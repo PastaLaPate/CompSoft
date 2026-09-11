@@ -6,6 +6,7 @@ class _GizmoMaterialsMeta(type):
     _x_axis_mat = None
     _y_axis_mat = None
     _z_axis_mat = None
+    _selected_axis_mat = None
 
     @property
     def X_AXIS_MAT(cls):
@@ -30,6 +31,14 @@ class _GizmoMaterialsMeta(type):
                 TextureRegistry.get_solid_color((0.2, 0.2, 1.0))
             )
         return cls._z_axis_mat
+
+    @property
+    def SELECTED_AXIS_MAT(cls):
+        if cls._selected_axis_mat is None:
+            cls._selected_axis_mat = LightMaterial(
+                TextureRegistry.get_solid_color((0.9, 0.8, 0.0))
+            )
+        return cls._selected_axis_mat
 
 
 class GizmoMaterials(metaclass=_GizmoMaterialsMeta):

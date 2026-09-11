@@ -83,6 +83,7 @@ class ViewportInputConsumer(InputConsumer):
         if action_id == BINDING_CAMERA_PAN.id and value > 0:
             if not self.is_panning:
                 self.is_panning = True
+                pointer.active_drag_action = self
                 window.set_cursor_mode(CursorMode.DISABLED)
 
             if pointer.delta.x != 0 or pointer.delta.y != 0:
@@ -93,6 +94,7 @@ class ViewportInputConsumer(InputConsumer):
         if action_id == BINDING_CAMERA_PAN_RELEASE.id:
             if self.is_panning:
                 self.is_panning = False
+                pointer.active_drag_action = None
                 window.set_cursor_mode(CursorMode.NORMAL)
                 window.set_cursor_shape(CursorShape.ARROW)
             return True
@@ -108,6 +110,7 @@ class ViewportInputConsumer(InputConsumer):
                 )
                 if dist > self.drag_threshold:
                     self.is_orbiting = True
+                    pointer.active_drag_action = self
                     window.set_cursor_mode(CursorMode.DISABLED)
             elif self.is_orbiting:
                 self.camera_controls.orbit_camera(pointer.delta)
@@ -117,6 +120,7 @@ class ViewportInputConsumer(InputConsumer):
             if not self.is_orbiting:
                 return False
             self.is_orbiting = False
+            pointer.active_drag_action = None
             self.is_lmb_clicking = False
             window.set_cursor_mode(CursorMode.NORMAL)
             window.set_cursor_shape(CursorShape.ARROW)
