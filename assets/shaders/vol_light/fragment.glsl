@@ -29,14 +29,16 @@ uniform float uTime;
 const int NUM_STEPS = 64;
 const float MAX_FOG_DIST = 50.0;
 
+const float PI = 3.14159265;
+const float EPSILON = 0.001;
+
 float HenyeyGreenstein(float cosTheta, float g) {
   float g2 = g * g;
-  return (1.0 - g2) /
-         (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
+  return (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
 }
 
 vec3 GetRayDir(vec2 texCoords, mat4 invViewProj, vec3 cameraPos) {
-  vec4 ndc = vec4(texCoords * 2.0 - 1.0, 1.0, 1.0);
+  vec4 ndc = vec4(texCoords * 2.0 - 1.0, 1.0, 1.0); // [0-1] to [-1, 1]
   vec4 worldPos = invViewProj * ndc;
   worldPos /= worldPos.w;
   return normalize(worldPos.xyz - cameraPos);
@@ -44,7 +46,7 @@ vec3 GetRayDir(vec2 texCoords, mat4 invViewProj, vec3 cameraPos) {
 
 void main() {
   vec3 pos = texture(uPosition, vTexCoords).rgb;
-  bool isVoid = length(pos) < 0.001;
+  bool isVoid = length(pos) < EPSILON;
 
   vec3 rayOrigin = uCameraPos;
   vec3 rayDir;
@@ -67,10 +69,11 @@ void main() {
   vec3 finalColor = vec3(0.0);
   for (int i = 0; i < uActiveLightCount; i++) {
     vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
-    vec3 accumulated_fog = vec3(0.0);
+    vec3 accumulatedFog = vec3(0.0);
     for (int j = 0; j < NUM_STEPS; j++) {
       vec4 lightSpacePos = uLightSpaceMatrices[i] * vec4(currentPos, 1.0);
-      vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w * 0.5 + 0.5;
+      vec3 projCoords =
+          lightSpacePos.xyz / lightSpacePos.w * 0.5 + 0.5; // [-1, 1] to [0, 1]
 
       float visibility = 1.0;
       if (projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 &&
@@ -80,6 +83,12 @@ void main() {
         float softness = 0.01;
         float diff = shadowMapDepth - projCoords.z;
         visibility = clamp(diff / softness + 0.5, 0.0, 1.0);
+
+        vec3 dirToSample = normalize(currentPos - uLights[i].position);
+        float cosAngle = dot(dirToSample, normalize(uLights[i].direction));
+        float spotMask =
+            smoothstep(uLights[i].cutoff, uLights[i].cutoff + 0.05, cosAngle);
+        visibility *= spotMask;
       } else {
         visibility = 0.0; // Outside the light's frustrum
       }
@@ -93,14 +102,14 @@ void main() {
         dist = max(dist, .5);
         float attenuation = 1.0 / (1.0 + 0.1 * dist + 0.01 * dist * dist);
 
-        accumulated_fog += visibility * phase * uLights[i].color *
-                           uLights[i].intensity * attenuation;
+        accumulatedFog += visibility * phase * uLights[i].color *
+                          uLights[i].intensity * attenuation;
       }
 
       currentPos += rayDir * stepSize;
     }
 
-    finalColor += accumulated_fog * stepSize;
+    finalColor += accumulatedFog * stepSize;
   }
 
   finalColor = finalColor / (finalColor + vec3(1.0)); // Reinhard
