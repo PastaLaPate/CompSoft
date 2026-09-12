@@ -108,10 +108,14 @@ class Engine:
         self.input_manager.add_binding(BINDING_GIZMO_CLICK)
         self.input_manager.add_binding(BINDING_GIZMO_CLICK_RELEASE)
 
-        self.input_manager.add_consumer(ViewportInputConsumer(self.cam_controls))
+        self.input_manager.add_consumer(
+            ViewportInputConsumer(self.cam_controls)
+        )
         self.input_manager.add_consumer(SceneClickConsumer(self.scene))
         self.input_manager.add_consumer(GizmoInputConsumer(self.scene))
-        self.window_bridge = WindowInputBridge(self.window.window, self.input_manager)
+        self.window_bridge = WindowInputBridge(
+            self.window.window, self.input_manager
+        )
         # self.cam_controls.add_lmb_click_listener(
         #    lambda pos: self.scene.select_on_click(
         #        self.window.size[0], self.window.size[1], pos
@@ -124,7 +128,9 @@ class Engine:
         self.post_fb = VolumetricLightFrameBuffer(*self.window.size)
 
         self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
-        self.vol_sq = VolumetricLightScreenQuad(resources.get_shader_path("vol_light"))
+        self.vol_sq = VolumetricLightScreenQuad(
+            resources.get_shader_path("vol_light")
+        )
         self.blur_sq = BlurScreenQuad(resources.get_shader_path("blur"))
         self.post_sq = PostScreenQuad(resources.get_shader_path("postprocess"))
 
@@ -132,14 +138,22 @@ class Engine:
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
             self.construct_debug_depth_sq()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
-        self.window.add_window_resize_listener(self.vol_fb._on_window_size_changed)
-        self.window.add_window_resize_listener(self.blur_fb._on_window_size_changed)
-        self.window.add_window_resize_listener(self.post_fb._on_window_size_changed)
+        self.window.add_window_resize_listener(
+            self.vol_fb._on_window_size_changed
+        )
+        self.window.add_window_resize_listener(
+            self.blur_fb._on_window_size_changed
+        )
+        self.window.add_window_resize_listener(
+            self.post_fb._on_window_size_changed
+        )
 
     def construct_debug_depth_sq(self):
         self.debug_depth_sq = DebugDepthScreenQuad()
 
-    def _add_prerender_listener(self, listener: Callable[[float, float], None]):
+    def _add_prerender_listener(
+        self, listener: Callable[[float, float], None]
+    ):
         self.prerender_listeners.append(listener)
 
     def start(self) -> None:
@@ -152,6 +166,7 @@ class Engine:
         ):
             self.window.clear()
 
+            frame_start = time.perf_counter()
             # Track time in ms
             dt_ms = self.window.dt * 1000
             frame_times.append(dt_ms)
@@ -160,17 +175,17 @@ class Engine:
             avg_ms = sum(frame_times) / len(frame_times)
             fps = 1000.0 / avg_ms
 
-            # Goofy huh
-            now = time.time()
-            if now - last_print > 0.75:
-                print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
-                self._last_print_time = now
+            t_random = time.perf_counter()
             self.input_manager.begin_frame()
             self.window.poll_events()
             self.input_manager.update(self.window.dt)
+            t_input = time.perf_counter()
 
             t += self.window.dt * 100
-            [listener(t, self.window.dt) for listener in self.prerender_listeners]
+            [
+                listener(t, self.window.dt)
+                for listener in self.prerender_listeners
+            ]
 
             if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
                 if self.debug_depth_sq is None:
@@ -188,15 +203,21 @@ class Engine:
                     )
             else:
                 with self.fb:
-                    self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
+                    self.scene.render(
+                        self.window.aspect_ratio, RenderPass.DEFERRED
+                    )
                 self.scene.upload_light_ubo(self.scene.get_lights())
+                t_deferred = time.perf_counter()
 
                 glCullFace(GL_FRONT)
                 light_space_matrices = {}
                 for active_light in self.scene.active_lights:
                     index = self.shadows_fb.get_light_layer(active_light)
-                    matrix = self.shadows_fb.render_light(active_light, self.scene)
+                    matrix = self.shadows_fb.render_light(
+                        active_light, self.scene
+                    )
                     light_space_matrices[index] = matrix
+                t_shadow = time.perf_counter()
 
                 glCullFace(GL_BACK)
                 with self.post_fb:
@@ -213,9 +234,11 @@ class Engine:
                     )
                 self.post_sq.bind_shader()
                 self.post_sq.render(*self.window.size, self.post_fb.color_tex)
+                t_lighting = time.perf_counter()
 
                 self.fb.unbind()  # Get the scene's depth buffer back
                 self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
+                t_forward = time.perf_counter()
 
                 with self.vol_fb:
                     self.vol_sq.bind_shader(light_space_matrices)
@@ -234,6 +257,7 @@ class Engine:
                             ),
                         ),
                     )
+                t_vol_lighting = time.perf_counter()
 
                 with self.blur_fb:
                     self.blur_sq.bind_shader()
@@ -256,6 +280,24 @@ class Engine:
                 )
                 glDepthMask(GL_TRUE)
                 glDisable(GL_BLEND)
+                t_blur = time.perf_counter()
+
+            # Goofy huh
+            now = time.time()
+            if now - last_print > 0.75 and self.scene.debug.has_flag(
+                DebugFlags.DEBUG_FRAME_TIME
+            ):
+                print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+                print(f"\nRandom: {(t_random - frame_start) * 1000:.2f}ms")
+                print(f"Input: {(t_input - t_random) * 1000:.2f}ms")
+                print(f"Deferred: {(t_deferred - t_input) * 1000:.2f}ms")
+                print(f"Shadow:   {(t_shadow - t_deferred) * 1000:.2f}ms")
+                print(f"Lighting: {(t_lighting - t_shadow) * 1000:.2f}ms")
+                print(f"Forward:  {(t_forward - t_lighting) * 1000:.2f}ms")
+                print(f"Vol:      {(t_vol_lighting - t_forward) * 1000:.2f}ms")
+                print(f"Blur:     {(t_blur - t_vol_lighting) * 1000:.2f}ms")
+                print(f"Total:    {(t_blur - frame_start) * 1000:.2f}ms")
+                self._last_print_time = now
 
             self.window.swap_buffers()
 

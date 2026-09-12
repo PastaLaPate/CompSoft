@@ -16,7 +16,7 @@ from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
 from compsoft.scene.components.cube import SimpleCubeComponent
 from compsoft.scene.components.cylinder import SimpleCylinderComponent
-from compsoft.scene.components.light import SpotLight
+from compsoft.scene.components.light import DirectionalLight, SpotLight
 from compsoft.scene.components.model_mesh import ModelMeshComponent
 
 # NVIDIA PRIME Offload
@@ -67,7 +67,7 @@ def main():
 
     actor = scene.add_actor(Actor())
     cube = actor.add_component(SimpleCubeComponent(mat))
-    # actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=0.15))
+    actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=0.1))
     cube.load()
     cube.scale = vec3(100, 1, 100)
 
@@ -81,22 +81,26 @@ def main():
 
     light_actor = scene.add_actor(Actor())
     light_cube = light_actor.add_component(
-        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
     )
     light_actor.position = vec3(0, 10, 0)
     light_cube.RENDER_PASS = RenderPass.FORWARD
     light_comp = light_actor.add_component(SpotLight())
-    light_comp.intensity = 5
+    light_comp.intensity = 1
     light_comp.color = vec3(1, 0, 0)
     light_cube.load()
 
     light_actor2 = scene.add_actor(Actor())
     light_cube2 = light_actor2.add_component(
-        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
     )
     light_cube2.RENDER_PASS = RenderPass.FORWARD
     light_comp2 = light_actor2.add_component(SpotLight())
-    light_comp2.intensity = 5
+    light_comp2.intensity = 1
     light_comp2.color = vec3(0, 0, 1)
     light_cube2.load()
 
