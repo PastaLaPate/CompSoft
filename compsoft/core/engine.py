@@ -229,7 +229,10 @@ class Engine:
                     )
                 self.post_sq.bind_shader()
                 self.post_sq.render(*self.window.size, self.post_fb.color_tex)
+
+                self.fb.unbind()  # Get the scene's depth buffer back
                 self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
+
                 with self.vol_fb:
                     self.vol_sq.bind_shader(light_space_matrices)
                     self.vol_sq.render(
@@ -257,7 +260,6 @@ class Engine:
                         blur_direction=vec2(1, 0),
                     )
 
-                # Vertical pass: blur_fb -> screen, additive on top of the lit scene
                 glEnable(GL_BLEND)
                 glBlendFunc(GL_ONE, GL_ONE)
                 glDepthMask(GL_FALSE)
