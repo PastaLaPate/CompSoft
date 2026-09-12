@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class LightType(IntEnum):
-    POINT = 0
+    # POINT = 0
     DIRECTIONAL = 1
     SPOT = 2
 
@@ -106,6 +106,8 @@ class LightComponent(ABC, Component):
     def get_data(self) -> LightData: ...
 
 
+# TODO: Point light available with https://learnopengl.com/Advanced-Lighting/Shadows/Point-Shadows
+"""
 class PointLight(LightComponent):
     def __init__(
         self,
@@ -131,6 +133,7 @@ class PointLight(LightComponent):
             self.intensity,
             0,
         )
+        """
 
 
 class DirectionalLight(LightComponent):
@@ -191,17 +194,30 @@ class SpotLight(LightComponent):
         position: vec3 | None = None,
     ):
         super().__init__()
-        self.direction = direction or vec3(0, 90, 0)
+        self.direction = direction or vec3(0, -1, 0)
         self.color = color or vec3(1, 1, 1)
         self.intensity = intensity
         self.position = position or vec3(0, 0, 0)
+        self.angle = angle
         self.cutoff = math.cos(math.radians(angle))
 
     def get_data(self) -> LightData:
+        pos = self.position
+        dir_vec = self.direction
+
+        if self.parent:
+            wrld_matrix = self.parent.get_world_matrix()
+            pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
+            dir_vec = vec3(
+                wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0)
+            )
+            if glm.length(dir_vec) > 0:
+                dir_vec = glm.normalize(dir_vec)
+
         return LightData(
             LightType.SPOT,
-            self.position,
-            self.direction,
+            pos,
+            dir_vec,
             self.color,
             self.intensity,
             self.cutoff,

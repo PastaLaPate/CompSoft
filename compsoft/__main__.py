@@ -5,6 +5,7 @@ import time
 from glm import vec3
 from OpenGL import GL
 from OpenGL.GL.glget import glGetString
+from pyglm.glm import normalize
 
 from compsoft.core.engine import Engine
 from compsoft.graphics.infrastructure.render_pass import RenderPass
@@ -15,7 +16,7 @@ from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
 from compsoft.scene.components.cube import SimpleCubeComponent
 from compsoft.scene.components.cylinder import SimpleCylinderComponent
-from compsoft.scene.components.light import PointLight
+from compsoft.scene.components.light import SpotLight
 from compsoft.scene.components.model_mesh import ModelMeshComponent
 
 # NVIDIA PRIME Offload
@@ -76,8 +77,22 @@ def main():
     )
     light_actor.position = vec3(0, 10, 0)
     light_cube.RENDER_PASS = RenderPass.FORWARD
-    light_actor.add_component(PointLight()).intensity = 5
+    light_comp = light_actor.add_component(SpotLight())
+    light_comp.intensity = 5
+    light_comp.color = vec3(1, 0, 0)
     light_cube.load()
+
+    light_actor2 = scene.add_actor(Actor())
+    light_cube2 = light_actor2.add_component(
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
+    )
+    light_cube2.RENDER_PASS = RenderPass.FORWARD
+    light_comp2 = light_actor.add_component(SpotLight())
+    light_comp2.intensity = 5
+    light_comp2.color = vec3(0, 0, 1)
+    light_cube2.load()
 
     cone_actor = scene.add_actor(Actor())
     cone_actor.position = vec3(5, 5, 0)
@@ -116,6 +131,14 @@ def main():
             10,
             math.sin(math.radians(t / 10)) * 10,
         )
+        light_comp.direction = normalize(-light_actor.position)
+
+        light_actor2.position = vec3(
+            -math.cos(math.radians(t / 10)) * 10,
+            10,
+            -math.sin(math.radians(t / 10)) * 10,
+        )
+        light_comp2.direction = normalize(-light_actor2.position)
 
     engine._add_prerender_listener(tick)
 

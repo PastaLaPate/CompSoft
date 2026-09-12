@@ -32,7 +32,7 @@ from OpenGL.GL import (
 from pyglm import glm
 from pyglm.glm import mat4x4, vec3
 
-from compsoft.scene.components.light import LightComponent
+from compsoft.scene.components.light import LightComponent, LightType
 from compsoft.scene.scene import Scene
 
 MAX_SHADOW_LIGHTS = 8
@@ -92,7 +92,8 @@ class ShadowFrameBuffer:
         return self.light_layers[light] * CASCADES_N + cascade
 
     def render_light(self, light: LightComponent, scene: Scene) -> mat4x4:
-
+        if not light.parent:
+            return mat4x4()
         layer = self.get_light_layer(light)
 
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
@@ -108,11 +109,25 @@ class ShadowFrameBuffer:
         glClear(GL_DEPTH_BUFFER_BIT)
 
         near, far = 0.1, 50
-        # light_projection = glm.ortho(-10, 10, -10, 10, near, far)
-        light_projection = glm.perspective(glm.radians(10), 1, near, far)
+        light_data = light.get_data()
+
+        if light_data.type == LightType.DIRECTIONAL:
+            light_projection = glm.ortho(-10, 10, -10, 10, near, far)
+        else:
+            spot_angle = getattr(light, "angle", 45.0)
+            light_projection = glm.perspective(
+                glm.radians(spot_angle * 2.0), 1.0, near, far
+            )
+
+        light_pos = light_data.position
+        light_dir = light_data.direction
+
         light_view = glm.lookAt(
-            light.get_data().position, vec3(0, 0, 0), vec3(0, 1, 0)
+            light_pos,
+            light_pos + light_dir,
+            vec3(0, 1, 0),
         )
+
         vp_matrix: mat4x4 = cast(mat4x4, light_projection * light_view)
 
         scene.render_shadow_map(vp_matrix)
