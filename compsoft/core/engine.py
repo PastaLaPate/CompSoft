@@ -22,18 +22,22 @@ from pyglm.glm import mat4x4, vec2, vec3
 from compsoft.core.debug import DebugFlags
 from compsoft.core.window import Window
 from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
-from compsoft.graphics.infrastructure.blur_screen_quad import BlurScreenQuad
 from compsoft.graphics.infrastructure.frame_buffer import FrameBuffer
+from compsoft.graphics.infrastructure.quads.blur_screen_quad import (
+    BlurScreenQuad,
+)
+from compsoft.graphics.infrastructure.quads.lit_screen_quad import (
+    SceneRenderScreenQuad,
+)
+from compsoft.graphics.infrastructure.quads.vol_light_screen_quad import (
+    VolumetricLightScreenQuad,
+)
 from compsoft.graphics.infrastructure.render_pass import RenderPass
-from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
 from compsoft.graphics.infrastructure.shadows_frame_buffer import (
     ShadowFrameBuffer,
 )
 from compsoft.graphics.infrastructure.vol_light_frame_buffer import (
     VolumetricLightFrameBuffer,
-)
-from compsoft.graphics.infrastructure.vol_light_screen_quad import (
-    VolumetricLightScreenQuad,
 )
 from compsoft.input.consumers.gizmo_consumer import (
     BINDING_GIZMO_CLICK,
@@ -120,7 +124,9 @@ class Engine:
         vol_sq_shader_pair = resources.get_shader_path("vol_light")
         blur_sq_shader_pair = resources.get_shader_path("blur")
 
-        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
+        self.sq = SceneRenderScreenQuad(
+            sq_shader_pair.vertex, sq_shader_pair.fragment
+        )
         self.vol_sq = VolumetricLightScreenQuad(
             vol_sq_shader_pair.vertex, vol_sq_shader_pair.fragment
         )
@@ -217,12 +223,8 @@ class Engine:
                 self.vol_fb.bind()
                 self.vol_sq.bind_shader(light_space_matrices)
                 self.vol_sq.render(
-                    self.window.size[0],
-                    self.window.size[1],
+                    *self.window.size,
                     self.fb.position_tex,
-                    self.fb.normal_tex,
-                    self.fb.color_tex,
-                    self.fb.selection_tex,
                     self.shadows_fb.shadow_array_tex,
                     self.scene.camera.pos,
                     cast(

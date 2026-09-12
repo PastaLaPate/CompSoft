@@ -18,9 +18,6 @@ layout(std140) uniform LightingBlock {
 };
 
 uniform sampler2D uPosition;
-uniform sampler2D uNormal;
-uniform sampler2D uColor;
-uniform sampler2D uSelection;
 uniform sampler2DArray uShadowMapArray;
 
 uniform mat4 uLightSpaceMatrices[8];

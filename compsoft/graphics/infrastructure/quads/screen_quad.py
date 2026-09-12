@@ -1,6 +1,6 @@
+from abc import ABC, abstractmethod
 from pathlib import Path
 
-import glfw
 import numpy as np
 from OpenGL.GL import (
     GL_ARRAY_BUFFER,
@@ -8,17 +8,8 @@ from OpenGL.GL import (
     GL_FALSE,
     GL_FLOAT,
     GL_STATIC_DRAW,
-    GL_TEXTURE0,
-    GL_TEXTURE1,
-    GL_TEXTURE2,
-    GL_TEXTURE3,
-    GL_TEXTURE4,
-    GL_TEXTURE_2D,
-    GL_TEXTURE_2D_ARRAY,
     GL_TRIANGLES,
-    glActiveTexture,
     glBindBuffer,
-    glBindTexture,
     glBindVertexArray,
     glBufferData,
     glDeleteBuffers,
@@ -32,14 +23,13 @@ from OpenGL.GL import (
     glGetUniformBlockIndex,
     glUniformBlockBinding,
     glVertexAttribPointer,
-    glViewport,
 )
-from pyglm.glm import mat4x4, vec2, vec3
+from pyglm.glm import mat4x4
 
 from compsoft.graphics.shader import Shader
 
 
-class ScreenQuad:
+class ScreenQuad(ABC):
     def __init__(
         self, passthrough_vert_path: Path, postprocess_frag_path: Path
     ) -> None:
@@ -80,58 +70,15 @@ class ScreenQuad:
         glBindVertexArray(0)
         self.shader = Shader(passthrough_vert_path, postprocess_frag_path)
 
-    def bind_shader(self, light_space_matrices: dict[int, mat4x4]):
+    def bind_shader(self, **kwargs):
         glDisable(GL_DEPTH_TEST)
         self.shader.use()
-        block_index = glGetUniformBlockIndex(
-            self.shader.program_id, "LightingBlock"
-        )
-        glUniformBlockBinding(self.shader.program_id, block_index, 0)
-        self.upload_light_space_matrices(light_space_matrices)
 
-    def upload_light_space_matrices(self, matrices: dict[int, mat4x4]):
-        for light_i, matrix in matrices.items():
-            self.shader.set_uniform_matrix(
-                f"uLightSpaceMatrices[{light_i}]", matrix
-            )
+    @abstractmethod
+    def render(self, screen_width: int, screen_height: int, **kwargs):
+        pass
 
-    def render(
-        self,
-        screen_width: int,
-        screen_height: int,
-        position_tex: int,
-        normal_tex: int,
-        color_tex: int,
-        selected_tex: int,
-        shadows_tex: int,
-        camera_pos: vec3,
-    ):
-        glActiveTexture(GL_TEXTURE0)
-        glBindTexture(GL_TEXTURE_2D, position_tex)
-        glActiveTexture(GL_TEXTURE1)
-        glBindTexture(GL_TEXTURE_2D, normal_tex)
-        glActiveTexture(GL_TEXTURE2)
-        glBindTexture(GL_TEXTURE_2D, color_tex)
-        glActiveTexture(GL_TEXTURE3)
-        glBindTexture(GL_TEXTURE_2D, selected_tex)
-        glActiveTexture(GL_TEXTURE4)
-        glBindTexture(GL_TEXTURE_2D_ARRAY, shadows_tex)
-
-        glViewport(0, 0, screen_width, screen_height)
-
-        self.shader.set_uniform_i("uPosition", 0)
-        self.shader.set_uniform_i("uNormal", 1)
-        self.shader.set_uniform_i("uColor", 2)
-        self.shader.set_uniform_i("uSelection", 3)
-        self.shader.set_uniform_i("uShadowMapArray", 4)
-
-        self.shader.set_uniform_vec2(
-            "uTexelSize", vec2(1.0 / screen_width, 1.0 / screen_height)
-        )
-
-        self.shader.set_uniform_vec3("uCameraPos", camera_pos)
-        self.shader.set_uniform_float("uTime", float(glfw.get_time() * 10.0))
-
+    def draw(self):
         glBindVertexArray(self.vxt)
         glDrawArrays(GL_TRIANGLES, 0, 6)
         glBindVertexArray(0)
@@ -145,3 +92,24 @@ class ScreenQuad:
             glDeleteBuffers(1, [self.quad_vertex_buffer])
         if self.shader:
             self.shader.destroy()
+
+
+class LitScreenQuad(ScreenQuad, ABC):
+    def bind_shader(
+        self, light_space_matrices: dict[int, mat4x4] | None = None, **kwargs
+    ):
+        super().bind_shader(**kwargs)
+        if light_space_matrices:
+            block_index = glGetUniformBlockIndex(
+                self.shader.program_id, "LightingBlock"
+            )
+            glUniformBlockBinding(self.shader.program_id, block_index, 0)
+            self.upload_light_space_matrices(light_space_matrices)
+        else:
+            raise RuntimeError("Light space matrices not set")
+
+    def upload_light_space_matrices(self, matrices: dict[int, mat4x4]):
+        for light_i, matrix in matrices.items():
+            self.shader.set_uniform_matrix(
+                f"uLightSpaceMatrices[{light_i}]", matrix
+            )

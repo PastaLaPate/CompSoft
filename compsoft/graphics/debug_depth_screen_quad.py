@@ -1,4 +1,3 @@
-from glm import vec3
 from OpenGL.GL import (
     GL_DEPTH_TEST,
     GL_TEXTURE0,
@@ -7,12 +6,11 @@ from OpenGL.GL import (
     glActiveTexture,
     glBindTexture,
     glBindVertexArray,
-    glDisable,
     glDrawArrays,
     glEnable,
 )
 
-from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
+from compsoft.graphics.infrastructure.quads.screen_quad import ScreenQuad
 from compsoft.resources.manager import resources
 
 
@@ -21,20 +19,13 @@ class DebugDepthScreenQuad(ScreenQuad):
         sq_shader_pair = resources.get_shader_path("debug_depth")
         super().__init__(sq_shader_pair.vertex, sq_shader_pair.fragment)
 
-    def bind_shader(self):
-        glDisable(GL_DEPTH_TEST)
-        self.shader.use()
-
     def render(
         self,
         screen_width: int,
         screen_height: int,
         position_tex: int = 0,
-        normal_tex: int | None = None,
-        color_tex: int | None = None,
-        selected_tex: int | None = None,
         shadows_tex: int = 0,
-        camera_pos: vec3 | None = None,
+        **kwargs,
     ):
 
         glActiveTexture(GL_TEXTURE0)
