@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from OpenGL.constant import Constant
 from OpenGL.GL import (
     GL_BLEND,
     GL_CLAMP_TO_EDGE,
@@ -45,10 +46,10 @@ from OpenGL.GL import (
 
 @dataclass(frozen=True)
 class ColorAttachment:
-    attachment: int
-    internal_format: int
-    format: int
-    type: int
+    attachment: int | Constant
+    internal_format: int | Constant
+    format: int | Constant
+    type: int | Constant
 
 
 class FrameBuffer(ABC):
@@ -82,7 +83,6 @@ class FrameBuffer(ABC):
         attachments = [
             attachment.attachment for attachment in self.color_attachments()
         ]
-
         glDrawBuffers(len(attachments), attachments)
 
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
@@ -159,6 +159,14 @@ class FrameBuffer(ABC):
         glRenderbufferStorage(
             GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, self.width, self.height
         )
+
+    def __enter__(self):
+        self.bind()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.unbind()
+        return False
 
     def bind(self) -> None:
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)

@@ -22,7 +22,15 @@ from pyglm.glm import mat4x4, vec2, vec3
 from compsoft.core.debug import DebugFlags
 from compsoft.core.window import Window
 from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
-from compsoft.graphics.infrastructure.frame_buffer import FrameBuffer
+from compsoft.graphics.infrastructure.frame_buffers.scene_frame_buffer import (
+    SceneFrameBuffer,
+)
+from compsoft.graphics.infrastructure.frame_buffers.shadows_frame_buffer import (
+    ShadowFrameBuffer,
+)
+from compsoft.graphics.infrastructure.frame_buffers.vol_light_frame_buffer import (
+    VolumetricLightFrameBuffer,
+)
 from compsoft.graphics.infrastructure.quads.blur_screen_quad import (
     BlurScreenQuad,
 )
@@ -33,12 +41,6 @@ from compsoft.graphics.infrastructure.quads.vol_light_screen_quad import (
     VolumetricLightScreenQuad,
 )
 from compsoft.graphics.infrastructure.render_pass import RenderPass
-from compsoft.graphics.infrastructure.shadows_frame_buffer import (
-    ShadowFrameBuffer,
-)
-from compsoft.graphics.infrastructure.vol_light_frame_buffer import (
-    VolumetricLightFrameBuffer,
-)
 from compsoft.input.consumers.gizmo_consumer import (
     BINDING_GIZMO_CLICK,
     BINDING_GIZMO_CLICK_RELEASE,
@@ -116,7 +118,7 @@ class Engine:
         #    )
         # )
 
-        self.fb = FrameBuffer(*self.window.size)
+        self.fb = SceneFrameBuffer(*self.window.size)
         self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
         self.blur_fb = VolumetricLightFrameBuffer(*self.window.size)
 
@@ -138,6 +140,12 @@ class Engine:
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
             self.construct_debug_depth_sq()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
+        self.window.add_window_resize_listener(
+            self.vol_fb._on_window_size_changed
+        )
+        self.window.add_window_resize_listener(
+            self.blur_fb._on_window_size_changed
+        )
 
     def construct_debug_depth_sq(self):
         self.debug_depth_sq = DebugDepthScreenQuad()
@@ -191,11 +199,10 @@ class Engine:
                         shadows_tex=self.shadows_fb.shadow_array_tex,
                     )
             else:
-                self.fb.bind()
-                self.scene.render(
-                    self.window.aspect_ratio, RenderPass.DEFERRED
-                )
-                self.fb.unbind()
+                with self.fb:
+                    self.scene.render(
+                        self.window.aspect_ratio, RenderPass.DEFERRED
+                    )
                 self.scene.upload_light_ubo(self.scene.get_lights())
 
                 glCullFace(GL_FRONT)
@@ -220,34 +227,32 @@ class Engine:
                     self.scene.camera.pos,
                 )
                 self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
-                self.vol_fb.bind()
-                self.vol_sq.bind_shader(light_space_matrices)
-                self.vol_sq.render(
-                    *self.window.size,
-                    self.fb.position_tex,
-                    self.shadows_fb.shadow_array_tex,
-                    self.scene.camera.pos,
-                    cast(
-                        mat4x4,
-                        glm.inverse(
-                            self.scene.camera.get_projection_matrix(
-                                self.window.aspect_ratio
-                            )
-                            * self.scene.camera.get_view_matrix()
+                with self.vol_fb:
+                    self.vol_sq.bind_shader(light_space_matrices)
+                    self.vol_sq.render(
+                        *self.window.size,
+                        self.fb.position_tex,
+                        self.shadows_fb.shadow_array_tex,
+                        self.scene.camera.pos,
+                        cast(
+                            mat4x4,
+                            glm.inverse(
+                                self.scene.camera.get_projection_matrix(
+                                    self.window.aspect_ratio
+                                )
+                                * self.scene.camera.get_view_matrix()
+                            ),
                         ),
-                    ),
-                )
-                self.vol_fb.unbind()
+                    )
 
-                self.blur_fb.bind()
-                self.blur_sq.bind_shader()
-                self.blur_sq.render(
-                    self.window.size[0],
-                    self.window.size[1],
-                    self.vol_fb.color_tex,
-                    blur_direction=vec2(1, 0),
-                )
-                self.blur_fb.unbind()
+                with self.blur_fb:
+                    self.blur_sq.bind_shader()
+                    self.blur_sq.render(
+                        self.window.size[0],
+                        self.window.size[1],
+                        self.vol_fb.color_tex,
+                        blur_direction=vec2(1, 0),
+                    )
 
                 # Vertical pass: blur_fb -> screen, additive on top of the lit scene
                 glEnable(GL_BLEND)
