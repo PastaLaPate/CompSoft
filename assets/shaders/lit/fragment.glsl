@@ -4,12 +4,13 @@ in vec2 vTexCoords;
 out vec3 oColor;
 
 struct LightData {
-  int type;
+  int type; // directional = 1, spot = 2
   vec3 position;
   vec3 direction;
   vec3 color;
   float intensity;
-  float cutoff;
+  float inner_cutoff;
+  float outer_cutoff;
 };
 
 layout(std140) uniform LightingBlock {
@@ -64,21 +65,42 @@ void main() {
 
   vec3 accumulateColor = vec3(0, 0, 0);
   for (int i = 0; i < uActiveLightCount; i++) {
-    vec3 fragToLight = normalize(uLights[i].position - pos);
+    vec3 fragToLight;
+    float attenuation = 1.0;
+    float spotFactor = 1.0;
+
+    if (uLights[i].type == 1) { // Directional
+      fragToLight = normalize(-uLights[i].direction);
+      attenuation = 1.0;
+    } else if (uLights[i].type == 2) {
+      vec3 lightToFrag = pos - uLights[i].position;
+      float dist = length(lightToFrag);
+      fragToLight = -lightToFrag / dist;
+
+      attenuation = 1.0 / (1.0 + 0.1 * dist + 0.01 * dist * dist);
+
+      float cosAngle = dot(lightToFrag / dist, normalize(uLights[i].direction));
+      spotFactor =
+          clamp((cosAngle - uLights[i].outer_cutoff) /
+                    (uLights[i].inner_cutoff - uLights[i].outer_cutoff),
+                0.0, 1.0);
+    }
+    if (spotFactor <= 0.0)
+      continue;
+
     vec4 fragPosLightSpace = uLightSpaceMatrices[i] * vec4(pos, 1.0);
-
     float shadow = ShadowCalculation(fragPosLightSpace, normal, fragToLight, i);
-    float theta = clamp(dot(normal, fragToLight), 0, 1);
-    float distanceToLight = length(uLights[i].position - pos);
-    float attenuation = 1.0 / (1.0 + 0.1 * distanceToLight +
-                               0.01 * distanceToLight * distanceToLight);
 
+    float theta = clamp(dot(normal, fragToLight), 0, 1);
     vec3 lightReflectionDir = reflect(-fragToLight, normal);
     float alpha = clamp(dot(eyeDirection, lightReflectionDir), 0, 1);
-    vec3 color =
-        albedo * theta * uLights[i].color * uLights[i].intensity * attenuation +
-        specular * theta * uLights[i].intensity * pow(alpha, 5) * attenuation;
-    accumulateColor += color * (1 - shadow);
+
+    vec3 diffuse = albedo * theta * uLights[i].color * uLights[i].intensity;
+    vec3 specColor =
+        vec3(specular) * theta * uLights[i].intensity * pow(alpha, 32);
+
+    accumulateColor +=
+        (diffuse + specColor) * attenuation * spotFactor * (1.0 - shadow);
   }
 
   oColor = accumulateColor;

@@ -9,7 +9,8 @@ struct LightData {
   vec3 direction;
   vec3 color;
   float intensity;
-  float cutoff;
+  float inner_cutoff;
+  float outer_cutoff;
 };
 
 layout(std140) uniform LightingBlock {
@@ -68,41 +69,48 @@ void main() {
 
   vec3 finalColor = vec3(0.0);
   for (int i = 0; i < uActiveLightCount; i++) {
+    if (uLights[i].type != 2) {
+      continue;
+    }
+
     vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
     vec3 accumulatedFog = vec3(0.0);
     for (int j = 0; j < NUM_STEPS; j++) {
-      vec4 lightSpacePos = uLightSpaceMatrices[i] * vec4(currentPos, 1.0);
-      vec3 projCoords =
-          lightSpacePos.xyz / lightSpacePos.w * 0.5 + 0.5; // [-1, 1] to [0, 1]
+      vec3 lightToSample = currentPos - uLights[i].position;
+      float dist = max(length(lightToSample), 0.001);
+      vec3 dirFromLight = lightToSample / dist;
+
+      float cosAngle = dot(dirFromLight, normalize(uLights[i].direction));
+      float spotFactor =
+          clamp((cosAngle - uLights[i].outer_cutoff) /
+                    (uLights[i].inner_cutoff - uLights[i].outer_cutoff),
+                0.0, 1.0);
 
       float visibility = 1.0;
-      if (projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 &&
-          projCoords.y <= 1.0 && projCoords.z <= 1.0) {
-        float shadowMapDepth =
-            texture(uShadowMapArray, vec3(projCoords.xy, i)).r;
-        float softness = 0.01;
-        float diff = shadowMapDepth - projCoords.z;
-        visibility = clamp(diff / softness + 0.5, 0.0, 1.0);
 
-        vec3 dirToSample = normalize(currentPos - uLights[i].position);
-        float cosAngle = dot(dirToSample, normalize(uLights[i].direction));
-        float spotMask =
-            smoothstep(uLights[i].cutoff, uLights[i].cutoff + 0.05, cosAngle);
-        visibility *= spotMask;
-      } else {
-        visibility = 0.0; // Outside the light's frustrum
+      if (spotFactor > 0.0) {
+        vec4 lightSpacePos = uLightSpaceMatrices[i] * vec4(currentPos, 1.0);
+        vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w * 0.5 +
+                          0.5; // [-1, 1] to [0, 1]
+
+        if (projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 &&
+            projCoords.y <= 1.0 && projCoords.z <= 1.0) {
+          float shadowMapDepth =
+              texture(uShadowMapArray, vec3(projCoords.xy, i)).r;
+          float softness = 0.01;
+          visibility =
+              clamp((shadowMapDepth - projCoords.z) / softness + 0.5, 0.0, 1.0);
+        }
       }
 
-      if (visibility > 0.0) {
+      if (spotFactor * visibility > 0.0) {
         vec3 toLight = normalize(uLights[i].position - currentPos);
         float cosTheta = dot(rayDir, toLight);
         float phase = HenyeyGreenstein(cosTheta, 0.3);
 
-        float dist = length(uLights[i].position - currentPos);
-        dist = max(dist, .5);
         float attenuation = 1.0 / (1.0 + 0.1 * dist + 0.01 * dist * dist);
 
-        accumulatedFog += visibility * phase * uLights[i].color *
+        accumulatedFog += spotFactor * visibility * phase * uLights[i].color *
                           uLights[i].intensity * attenuation;
       }
 

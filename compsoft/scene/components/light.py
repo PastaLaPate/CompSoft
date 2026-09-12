@@ -44,12 +44,13 @@ class LightData:
             ),  # 4 bytes of padding to push 'color' to byte 48
             ("color", np.float32, 3),  # 12 bytes, offset = 60 bytes
             ("intensity", np.float32),  # 4 bytes, offset = 64 bytes
-            ("cutoff", np.float32),  # 4 bytes, offset = 68 bytes
+            ("inner_cutoff", np.float32),  # 4 bytes, offset = 68 bytes
+            ("outer_cutoff", np.float32),  # 4 bytes, offset = 72 bytes
             (
                 "_pad3",
                 np.float32,
-                3,
-            ),  # 12 bytes of trailing padding to round out to 80 bytes total
+                2,
+            ),  # 8 bytes of trailing padding to round out to 80 bytes total
         ]
     )
 
@@ -72,14 +73,16 @@ class LightData:
         direction: vec3,
         color: vec3,
         intensity: float,
-        cutoff: float = 0.0,
+        inner_cutoff: float = 0.0,
+        outer_cutoff: float = 0.0,
     ):
         self.type = light_type
         self.position = position
         self.direction = direction
         self.color = color
         self.intensity = intensity
-        self.cutoff = cutoff  # For Spotlights (cosine of angle)
+        self.inner_cutoff = inner_cutoff  # For Spotlights (cosine of angle)
+        self.outer_cutoff = outer_cutoff  # Also for spotlights
 
     def to_dtype(self):
         data = np.zeros(1, dtype=self.LIGHT_DTYPE)
@@ -88,7 +91,8 @@ class LightData:
         data["direction"] = self.direction
         data["color"] = self.color
         data["intensity"] = self.intensity
-        data["cutoff"] = self.cutoff
+        data["inner_cutoff"] = self.inner_cutoff
+        data["outer_cutoff"] = self.outer_cutoff
         return data
 
     def __repr__(self):
@@ -145,43 +149,39 @@ class DirectionalLight(LightComponent):
         direction: vec3 | None = None,
         color: vec3 | None = None,
         intensity: float = 1,
-        position: vec3 | None = None,
     ):
         """Initiates a directional light
 
         Args:
-            direction (vec3, optional): direction of light, in order: roll, pitch, yaw. Defaults to vec3(0, 90, 0).
+            direction (vec3, optional): direction of light (vector).
             color (vec3, optional): color of the light. Defaults to vec3(1, 1, 1).
             intensity (float, optional): intensity of the light. Defaults to 1.
             position (vec3, optional): position relative to parent actor. Defaults to vec3(0, 0, 0).
         """
         super().__init__()
-        self.direction = direction or vec3(0, 90, 0)
+        self.direction = direction or vec3(0, -1, 0)
         self.color = color or vec3(1, 1, 1)
         self.intensity = intensity
-        self.position = position or vec3(0, 0, 0)
+        self.position = vec3(0, 0, 0)
 
     def get_data(self) -> LightData:
         pos = self.position
-        rotation_quat = glm.quat(glm.radians(self.direction))
-        local_forward = rotation_quat * glm.vec3(
-            0.0, 0.0, -1.0
-        )  # multiply by standard Z- forward
+        dir_vec = self.direction
+
         if self.parent:
             wrld_matrix = self.parent.get_world_matrix()
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
-            local_forward = vec3(
-                wrld_matrix
-                * glm.vec4(local_forward.x, local_forward.y, local_forward.z, 0.0)
-            )
+            dir_vec = vec3(wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0))
+
+        if glm.length(dir_vec) > 0:
+            dir_vec = glm.normalize(dir_vec)
 
         return LightData(
             LightType.DIRECTIONAL,
             pos,
-            glm.normalize(vec3(local_forward)),
+            dir_vec,
             self.color,
             self.intensity,
-            0,
         )
 
 
@@ -190,6 +190,7 @@ class SpotLight(LightComponent):
         self,
         direction: vec3 | None = None,
         angle: float = 30,
+        falloff_angle: float = 5,
         color: vec3 | None = None,
         intensity: float = 1,
         position: vec3 | None = None,
@@ -200,7 +201,8 @@ class SpotLight(LightComponent):
         self.intensity = intensity
         self.position = position or vec3(0, 0, 0)
         self.angle = angle
-        self.cutoff = math.cos(math.radians(angle))
+        self.inner_cutoff = math.cos(math.radians(angle))
+        self.outer_cutoff = math.cos(math.radians(angle + falloff_angle))
 
     def get_data(self) -> LightData:
         pos = self.position
@@ -219,5 +221,6 @@ class SpotLight(LightComponent):
             dir_vec,
             self.color,
             self.intensity,
-            self.cutoff,
+            self.inner_cutoff,
+            self.outer_cutoff,
         )

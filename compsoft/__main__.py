@@ -36,6 +36,15 @@ class COLORS:
     BLACK = vec3(0, 0, 0)
 
 
+def smooth_noise(t: float, seed: float) -> float:
+    """Combines sines at different frequencies for natural, organic motion."""
+    return (
+        math.sin(t * 0.8 + seed) * 0.5
+        + math.sin(t * 1.9 + seed * 1.3) * 0.3
+        + math.sin(t * 3.7 + seed * 2.1) * 0.2
+    )
+
+
 def main():
     print("Welcome...")
     t = time.time_ns()
@@ -58,6 +67,7 @@ def main():
 
     actor = scene.add_actor(Actor())
     cube = actor.add_component(SimpleCubeComponent(mat))
+    # actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=0.15))
     cube.load()
     cube.scale = vec3(100, 1, 100)
 
@@ -127,12 +137,22 @@ def main():
             10,
             math.sin(math.radians(t / 10)) * 10,
         )
+        light_actor.rotation = vec3(
+            smooth_noise(t / 100, 1.0) * 180,
+            smooth_noise(t / 100, 10.0) * 180,
+            smooth_noise(t / 100, 20.0) * 180,
+        )
         light_comp.direction = normalize(-light_actor.position)
 
         light_actor2.position = vec3(
             -math.cos(math.radians(t / 10)) * 10,
             10,
             -math.sin(math.radians(t / 10)) * 10,
+        )
+        light_actor2.rotation = vec3(
+            smooth_noise(t / 100, 1.0) * 180,
+            smooth_noise(t / 100, 10.0) * 180,
+            smooth_noise(t / 100, 20.0) * 180,
         )
         light_comp2.direction = normalize(-light_actor2.position)
 
