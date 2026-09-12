@@ -89,7 +89,7 @@ class ShadowFrameBuffer:
                 raise RuntimeError("No more shadow texture available")
             layer = self._available_layers.popleft()
             self.light_layers[light] = layer
-        return self.light_layers[light] * CASCADES_N + cascade
+        return self.light_layers[light]  # * CASCADES_N + cascade
 
     def render_light(self, light: LightComponent, scene: Scene) -> mat4x4:
         if not light.parent:

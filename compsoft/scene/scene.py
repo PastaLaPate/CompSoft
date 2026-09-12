@@ -34,7 +34,7 @@ from compsoft.scene.gizmos.axes import Axis
 from compsoft.scene.gizmos.translation_gizmo import TranslationGizmo
 
 if TYPE_CHECKING:
-    from compsoft.graphics.infrastructure.shadows_frame_buffer import (
+    from compsoft.graphics.infrastructure.frame_buffers.shadows_frame_buffer import (
         ShadowFrameBuffer,
     )
 

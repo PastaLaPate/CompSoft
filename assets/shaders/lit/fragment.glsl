@@ -28,7 +28,8 @@ uniform vec3 uCameraPos;
 uniform vec2 uTexelSize;
 uniform float uTime;
 
-float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir,
+                        int index) {
   vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
   projCoords = projCoords * 0.5 + 0.5;
   if (projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 ||
@@ -42,9 +43,10 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir) {
   vec2 texelSize = (1.0 / textureSize(uShadowMapArray, 0)).xy;
   for (int x = -1; x <= 1; ++x) {
     for (int y = -1; y <= 1; ++y) {
-      float pcfDepth = texture(uShadowMapArray,
-                               vec3(projCoords.xy + vec2(x, y) * texelSize, 0))
-                           .r;
+      float pcfDepth =
+          texture(uShadowMapArray,
+                  vec3(projCoords.xy + vec2(x, y) * texelSize, index))
+              .r;
       shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
     }
   }
@@ -59,22 +61,27 @@ void main() {
   float specular = texture(uColor, vTexCoords).a;
 
   vec3 eyeDirection = normalize(uCameraPos - pos);
-  vec3 fragToLight = normalize(uLights[0].position - pos);
-  vec4 fragPosLightSpace = uLightSpaceMatrices[0] * vec4(pos, 1.0);
 
-  float shadow = ShadowCalculation(fragPosLightSpace, normal, fragToLight);
-  float theta = clamp(dot(normal, fragToLight), 0, 1);
-  float distanceToLight = length(uLights[0].position - pos);
-  float attenuation = 1.0 / (1.0 + 0.1 * distanceToLight +
-                             0.01 * distanceToLight * distanceToLight);
+  vec3 accumulateColor = vec3(0, 0, 0);
+  for (int i = 0; i < uActiveLightCount; i++) {
+    vec3 fragToLight = normalize(uLights[i].position - pos);
+    vec4 fragPosLightSpace = uLightSpaceMatrices[i] * vec4(pos, 1.0);
 
-  vec3 lightReflectionDir = reflect(-fragToLight, normal);
-  float alpha = clamp(dot(eyeDirection, lightReflectionDir), 0, 1);
+    float shadow = ShadowCalculation(fragPosLightSpace, normal, fragToLight, i);
+    float theta = clamp(dot(normal, fragToLight), 0, 1);
+    float distanceToLight = length(uLights[i].position - pos);
+    float attenuation = 1.0 / (1.0 + 0.1 * distanceToLight +
+                               0.01 * distanceToLight * distanceToLight);
 
-  oColor =
-      albedo * theta * uLights[0].color * uLights[0].intensity * attenuation +
-      specular * theta * uLights[0].intensity * pow(alpha, 5) * attenuation;
-  oColor = oColor * (1 - shadow);
+    vec3 lightReflectionDir = reflect(-fragToLight, normal);
+    float alpha = clamp(dot(eyeDirection, lightReflectionDir), 0, 1);
+    vec3 color =
+        albedo * theta * uLights[i].color * uLights[i].intensity * attenuation +
+        specular * theta * uLights[i].intensity * pow(alpha, 5) * attenuation;
+    accumulateColor += color * (1 - shadow);
+  }
+
+  oColor = accumulateColor;
 
   // --- Depth-Aware Sobel Edge Detection ---
   float centerSel = texture(uSelection, vTexCoords).r;

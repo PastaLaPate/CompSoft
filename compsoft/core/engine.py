@@ -37,6 +37,9 @@ from compsoft.graphics.infrastructure.quads.blur_screen_quad import (
 from compsoft.graphics.infrastructure.quads.lit_screen_quad import (
     SceneRenderScreenQuad,
 )
+from compsoft.graphics.infrastructure.quads.post_screen_quad import (
+    PostScreenQuad,
+)
 from compsoft.graphics.infrastructure.quads.vol_light_screen_quad import (
     VolumetricLightScreenQuad,
 )
@@ -121,12 +124,14 @@ class Engine:
         self.fb = SceneFrameBuffer(*self.window.size)
         self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
         self.blur_fb = VolumetricLightFrameBuffer(*self.window.size)
+        self.post_fb = VolumetricLightFrameBuffer(*self.window.size)
 
         self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
         self.vol_sq = VolumetricLightScreenQuad(
             resources.get_shader_path("vol_light")
         )
         self.blur_sq = BlurScreenQuad(resources.get_shader_path("blur"))
+        self.post_sq = PostScreenQuad(resources.get_shader_path("postprocess"))
 
         self.debug_depth_sq = None
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
@@ -137,6 +142,9 @@ class Engine:
         )
         self.window.add_window_resize_listener(
             self.blur_fb._on_window_size_changed
+        )
+        self.window.add_window_resize_listener(
+            self.post_fb._on_window_size_changed
         )
 
     def construct_debug_depth_sq(self):
@@ -207,17 +215,20 @@ class Engine:
                     light_space_matrices[index] = matrix
 
                 glCullFace(GL_BACK)
-                self.sq.bind_shader(light_space_matrices)
-                self.sq.render(
-                    self.window.size[0],
-                    self.window.size[1],
-                    self.fb.position_tex,
-                    self.fb.normal_tex,
-                    self.fb.color_tex,
-                    self.fb.selection_tex,
-                    self.shadows_fb.shadow_array_tex,
-                    self.scene.camera.pos,
-                )
+                with self.post_fb:
+                    self.sq.bind_shader(light_space_matrices)
+                    self.sq.render(
+                        self.window.size[0],
+                        self.window.size[1],
+                        self.fb.position_tex,
+                        self.fb.normal_tex,
+                        self.fb.color_tex,
+                        self.fb.selection_tex,
+                        self.shadows_fb.shadow_array_tex,
+                        self.scene.camera.pos,
+                    )
+                self.post_sq.bind_shader()
+                self.post_sq.render(*self.window.size, self.post_fb.color_tex)
                 self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
                 with self.vol_fb:
                     self.vol_sq.bind_shader(light_space_matrices)

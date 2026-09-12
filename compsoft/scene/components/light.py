@@ -91,6 +91,9 @@ class LightData:
         data["cutoff"] = self.cutoff
         return data
 
+    def __repr__(self):
+        return f"Light[type={self.type},pos={self.position}]"
+
 
 class LightComponent(ABC, Component):
     def on_enter_scene(self, scene: "Scene"):

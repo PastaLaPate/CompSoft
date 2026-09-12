@@ -89,7 +89,7 @@ def main():
         )
     )
     light_cube2.RENDER_PASS = RenderPass.FORWARD
-    light_comp2 = light_actor.add_component(SpotLight())
+    light_comp2 = light_actor2.add_component(SpotLight())
     light_comp2.intensity = 5
     light_comp2.color = vec3(0, 0, 1)
     light_cube2.load()

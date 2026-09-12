@@ -64,45 +64,48 @@ void main() {
   float dither = fract(
       52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
-  vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
+  vec3 finalColor = vec3(0.0);
+  for (int i = 0; i < uActiveLightCount; i++) {
+    vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
+    vec3 accumulated_fog = vec3(0.0);
+    for (int j = 0; j < NUM_STEPS; j++) {
+      vec4 lightSpacePos = uLightSpaceMatrices[i] * vec4(currentPos, 1.0);
+      vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w * 0.5 + 0.5;
 
-  vec3 accumulated_fog = vec3(0.0);
-  for (int i = 0; i < NUM_STEPS; i++) {
-    vec4 lightSpacePos = uLightSpaceMatrices[0] * vec4(currentPos, 1.0);
-    vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w * 0.5 + 0.5;
+      float visibility = 1.0;
+      if (projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 &&
+          projCoords.y <= 1.0 && projCoords.z <= 1.0) {
+        float shadowMapDepth =
+            texture(uShadowMapArray, vec3(projCoords.xy, i)).r;
+        float softness = 0.01;
+        float diff = shadowMapDepth - projCoords.z;
+        visibility = clamp(diff / softness + 0.5, 0.0, 1.0);
+      } else {
+        visibility = 0.0; // Outside the light's frustrum
+      }
 
-    float visibility = 1.0;
-    if (projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 &&
-        projCoords.y <= 1.0 && projCoords.z <= 1.0) {
-      float shadowMapDepth = texture(uShadowMapArray, vec3(projCoords.xy, 0)).r;
-      float softness = 0.01;
-      float diff = shadowMapDepth - projCoords.z;
-      visibility = clamp(diff / softness + 0.5, 0.0, 1.0);
-    } else {
-      visibility = 0.0; // Outside the light's frustrum
+      if (visibility > 0.0) {
+        vec3 toLight = normalize(uLights[i].position - currentPos);
+        float cosTheta = dot(rayDir, toLight);
+        float phase = HenyeyGreenstein(cosTheta, 0.3);
+
+        float dist = length(uLights[i].position - currentPos);
+        dist = max(dist, .5);
+        float attenuation = 1.0 / (1.0 + 0.1 * dist + 0.01 * dist * dist);
+
+        accumulated_fog += visibility * phase * uLights[i].color *
+                           uLights[i].intensity * attenuation;
+      }
+
+      currentPos += rayDir * stepSize;
     }
 
-    if (visibility > 0.0) {
-      vec3 toLight = normalize(uLights[0].position - currentPos);
-      float cosTheta = dot(rayDir, toLight);
-      float phase = HenyeyGreenstein(cosTheta, 0.3);
-
-      float dist = length(uLights[0].position - currentPos);
-      dist = max(dist, .5);
-      float attenuation = 1.0 / (1.0 + 0.1 * dist + 0.01 * dist * dist);
-
-      accumulated_fog += visibility * phase * uLights[0].color *
-                         uLights[0].intensity * attenuation;
-    }
-
-    currentPos += rayDir * stepSize;
+    finalColor += accumulated_fog * stepSize;
   }
 
-  vec3 finalColor = accumulated_fog * stepSize;
+  finalColor = finalColor / (finalColor + vec3(1.0)); // Reinhard
 
-  finalColor = finalColor / (finalColor + vec3(1.0));
-
-  finalColor = pow(finalColor, vec3(1.0 / 2.2));
+  finalColor = pow(finalColor, vec3(1.0 / 2.2)); // Gamma Correction
 
   float outputNoise =
       (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) -
