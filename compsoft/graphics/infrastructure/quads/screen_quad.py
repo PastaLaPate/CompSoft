@@ -114,15 +114,18 @@ class ScreenQuad(ABC):
 
 
 class LitScreenQuad(ScreenQuad, ABC):
+    block_index = -1
+
     def bind_shader(
         self, light_space_matrices: dict[int, mat4x4] | None = None, **kwargs
     ):
         super().bind_shader(**kwargs)
         if light_space_matrices:
-            block_index = glGetUniformBlockIndex(
-                self.shader.program_id, "LightingBlock"
-            )
-            glUniformBlockBinding(self.shader.program_id, block_index, 0)
+            if self.block_index == -1:
+                self.block_index = glGetUniformBlockIndex(
+                    self.shader.program_id, "LightingBlock"
+                )
+            glUniformBlockBinding(self.shader.program_id, self.block_index, 0)
             self.upload_light_space_matrices(light_space_matrices)
             self.shader.set_uniform_i(
                 "uActiveLightCount", len(light_space_matrices)

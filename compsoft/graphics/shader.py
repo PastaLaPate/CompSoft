@@ -50,7 +50,7 @@ class Shader:
         return self._uniform_locations[name]
 
     def set_uniform_matrix(self, name: str, matrix: mat4) -> None:
-        loc = glGetUniformLocation(self.program_id, name)
+        loc = self.get_uniform_location(name)
         if loc != -1:
             if isinstance(matrix, mat4):
                 glUniformMatrix4fv(loc, 1, GL_FALSE, value_ptr(matrix))

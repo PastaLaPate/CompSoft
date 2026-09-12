@@ -1,3 +1,4 @@
+import time
 from collections import deque
 from collections.abc import Callable
 from typing import cast
@@ -158,6 +159,7 @@ class Engine:
     def start(self) -> None:
         frame_times = deque(maxlen=1500)
         t = 0
+        last_print = time.time()
         while (
             not self.window.key_pressed(glfw.KEY_ESCAPE)
             and not self.window.should_close()
@@ -173,7 +175,10 @@ class Engine:
             fps = 1000.0 / avg_ms
 
             # Goofy huh
-            print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+            now = time.time()
+            if now - last_print > 0.75:
+                print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
+                self._last_print_time = now
             self.input_manager.begin_frame()
             self.window.poll_events()
             self.input_manager.update(self.window.dt)
