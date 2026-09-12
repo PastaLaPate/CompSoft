@@ -284,19 +284,22 @@ class Engine:
 
             # Goofy huh
             now = time.time()
-            if now - last_print > 0.75 and self.scene.debug.has_flag(
-                DebugFlags.DEBUG_FRAME_TIME
-            ):
+            if now - last_print > 0.75:
                 print(f"\x1b[1K\r{avg_ms:6.2f} ms | {fps:7.1f} FPS", end="")
-                print(f"\nRandom: {(t_random - frame_start) * 1000:.2f}ms")
-                print(f"Input: {(t_input - t_random) * 1000:.2f}ms")
-                print(f"Deferred: {(t_deferred - t_input) * 1000:.2f}ms")
-                print(f"Shadow:   {(t_shadow - t_deferred) * 1000:.2f}ms")
-                print(f"Lighting: {(t_lighting - t_shadow) * 1000:.2f}ms")
-                print(f"Forward:  {(t_forward - t_lighting) * 1000:.2f}ms")
-                print(f"Vol:      {(t_vol_lighting - t_forward) * 1000:.2f}ms")
-                print(f"Blur:     {(t_blur - t_vol_lighting) * 1000:.2f}ms")
-                print(f"Total:    {(t_blur - frame_start) * 1000:.2f}ms")
+                if self.scene.debug.has_flag(DebugFlags.DEBUG_FRAME_TIME):
+                    print(f"\nRandom: {(t_random - frame_start) * 1000:.2f}ms")
+                    print(f"Input: {(t_input - t_random) * 1000:.2f}ms")
+                    print(f"Deferred: {(t_deferred - t_input) * 1000:.2f}ms")
+                    print(f"Shadow:   {(t_shadow - t_deferred) * 1000:.2f}ms")
+                    print(f"Lighting: {(t_lighting - t_shadow) * 1000:.2f}ms")
+                    print(f"Forward:  {(t_forward - t_lighting) * 1000:.2f}ms")
+                    print(
+                        f"Vol:      {(t_vol_lighting - t_forward) * 1000:.2f}ms"
+                    )
+                    print(
+                        f"Blur:     {(t_blur - t_vol_lighting) * 1000:.2f}ms"
+                    )
+                    print(f"Total:    {(t_blur - frame_start) * 1000:.2f}ms")
                 self._last_print_time = now
 
             self.window.swap_buffers()

@@ -27,7 +27,7 @@ uniform vec3 uCameraPos;
 uniform vec2 uTexelSize;
 uniform float uTime;
 
-const int NUM_STEPS = 64;
+const int NUM_STEPS = 28;
 const float MAX_FOG_DIST = 50.0;
 
 const float PI = 3.14159265;
@@ -73,6 +73,11 @@ void main() {
       continue;
     }
 
+    float distToLight = length(uLights[i].position - rayOrigin);
+    if (distToLight > MAX_FOG_DIST + 20.0) {
+        continue;  // too far
+    }
+
     vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
     vec3 accumulatedFog = vec3(0.0);
     for (int j = 0; j < NUM_STEPS; j++) {
@@ -112,6 +117,9 @@ void main() {
 
         accumulatedFog += spotFactor * visibility * phase * uLights[i].color *
                           uLights[i].intensity * attenuation;
+        if (dot(accumulatedFog, vec3(0.33)) > 0.95) {
+          break; // Almost saturated
+        }
       }
 
       currentPos += rayDir * stepSize;
