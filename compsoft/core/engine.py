@@ -14,6 +14,7 @@ from OpenGL.GL import (
     glBlendFunc,
     glCullFace,
     glDepthMask,
+    glDisable,
     glEnable,
 )
 from pyglm.glm import mat4x4, vec2, vec3
@@ -113,16 +114,20 @@ class Engine:
 
         self.fb = FrameBuffer(*self.window.size)
         self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
+        self.blur_fb = VolumetricLightFrameBuffer(*self.window.size)
+
         sq_shader_pair = resources.get_shader_path("lit")
-        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         vol_sq_shader_pair = resources.get_shader_path("vol_light")
+        blur_sq_shader_pair = resources.get_shader_path("blur")
+
+        self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
         self.vol_sq = VolumetricLightScreenQuad(
             vol_sq_shader_pair.vertex, vol_sq_shader_pair.fragment
         )
-        blur_sq_shader_pair = resources.get_shader_path("blur")
         self.blur_sq = BlurScreenQuad(
             blur_sq_shader_pair.vertex, blur_sq_shader_pair.fragment
         )
+
         self.debug_depth_sq = None
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
             self.construct_debug_depth_sq()
@@ -208,6 +213,7 @@ class Engine:
                     self.shadows_fb.shadow_array_tex,
                     self.scene.camera.pos,
                 )
+                self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
                 self.vol_fb.bind()
                 self.vol_sq.bind_shader(light_space_matrices)
                 self.vol_sq.render(
@@ -230,10 +236,8 @@ class Engine:
                     ),
                 )
                 self.vol_fb.unbind()
-                glEnable(GL_BLEND)
-                glBlendFunc(GL_ONE, GL_ONE)
-                glDepthMask(GL_FALSE)
-                glDepthMask(GL_TRUE)
+
+                self.blur_fb.bind()
                 self.blur_sq.bind_shader()
                 self.blur_sq.render(
                     self.window.size[0],
@@ -241,13 +245,21 @@ class Engine:
                     self.vol_fb.color_tex,
                     blur_direction=vec2(1, 0),
                 )
+                self.blur_fb.unbind()
+
+                # Vertical pass: blur_fb -> screen, additive on top of the lit scene
+                glEnable(GL_BLEND)
+                glBlendFunc(GL_ONE, GL_ONE)
+                glDepthMask(GL_FALSE)
+                self.blur_sq.bind_shader()
                 self.blur_sq.render(
                     self.window.size[0],
                     self.window.size[1],
-                    self.vol_fb.color_tex,
+                    self.blur_fb.color_tex,
                     blur_direction=vec2(0, 1),
                 )
-                self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
+                glDepthMask(GL_TRUE)
+                glDisable(GL_BLEND)
 
             self.window.swap_buffers()
 
