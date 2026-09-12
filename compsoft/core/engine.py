@@ -122,19 +122,11 @@ class Engine:
         self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
         self.blur_fb = VolumetricLightFrameBuffer(*self.window.size)
 
-        sq_shader_pair = resources.get_shader_path("lit")
-        vol_sq_shader_pair = resources.get_shader_path("vol_light")
-        blur_sq_shader_pair = resources.get_shader_path("blur")
-
-        self.sq = SceneRenderScreenQuad(
-            sq_shader_pair.vertex, sq_shader_pair.fragment
-        )
+        self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
         self.vol_sq = VolumetricLightScreenQuad(
-            vol_sq_shader_pair.vertex, vol_sq_shader_pair.fragment
+            resources.get_shader_path("vol_light")
         )
-        self.blur_sq = BlurScreenQuad(
-            blur_sq_shader_pair.vertex, blur_sq_shader_pair.fragment
-        )
+        self.blur_sq = BlurScreenQuad(resources.get_shader_path("blur"))
 
         self.debug_depth_sq = None
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):

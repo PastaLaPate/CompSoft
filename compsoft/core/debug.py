@@ -52,8 +52,7 @@ class Debug:
         self.vao = 0
         self.vbo = 0
 
-        shader_paths = resources.get_shader_path("debug")
-        self.shader = Shader(shader_paths.vertex, shader_paths.fragment)
+        self.shader = Shader(resources.get_shader_path("debug"))
 
     def add_flag(self, flag: DebugFlags):
         self.flags |= flag

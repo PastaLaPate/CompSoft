@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import overload
 
 import numpy as np
 from OpenGL.GL import (
@@ -27,12 +28,30 @@ from OpenGL.GL import (
 from pyglm.glm import mat4x4
 
 from compsoft.graphics.shader import Shader
+from compsoft.resources.manager import ShaderPair
 
 
 class ScreenQuad(ABC):
+    @overload
     def __init__(
-        self, passthrough_vert_path: Path, postprocess_frag_path: Path
+        self, passthrough_vert_path: Path, postprocess_frag_path: Path, /
+    ) -> None: ...
+
+    @overload
+    def __init__(self, path_pair: ShaderPair, /) -> None: ...
+
+    def __init__(
+        self,
+        passthrough_vert_path_or_pair: Path | ShaderPair,
+        postprocess_frag_path: Path | None = None,
     ) -> None:
+        if isinstance(passthrough_vert_path_or_pair, ShaderPair):
+            vert, frag = passthrough_vert_path_or_pair
+        elif postprocess_frag_path is not None:
+            vert, frag = passthrough_vert_path_or_pair, postprocess_frag_path
+        else:
+            raise TypeError("Invalid arguments provided.")
+
         self.vxt = glGenVertexArrays(1)
         glBindVertexArray(self.vxt)
 
@@ -68,7 +87,7 @@ class ScreenQuad(ABC):
         )
 
         glBindVertexArray(0)
-        self.shader = Shader(passthrough_vert_path, postprocess_frag_path)
+        self.shader = Shader(vert, frag)
 
     def bind_shader(self, **kwargs):
         glDisable(GL_DEPTH_TEST)

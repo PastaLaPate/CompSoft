@@ -17,8 +17,7 @@ from compsoft.resources.textures import TextureRegistry
 
 class Material:
     def __init__(self, albedo: Path | int, normal: Path | None = None) -> None:
-        shader_pair = resources.get_shader_path("gbuffer")
-        self.shader = Shader(shader_pair.vertex, shader_pair.fragment)
+        self.shader = Shader(resources.get_shader_path("gbuffer"))
 
         self.albedo = (
             TextureRegistry.get_texture(albedo) or -1

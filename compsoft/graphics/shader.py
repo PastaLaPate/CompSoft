@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import overload
 
 from glm import value_ptr
 from OpenGL.GL import (
@@ -16,12 +17,29 @@ from OpenGL.GL import (
 )
 from pyglm.glm import mat3, mat4, vec2, vec3
 
+from compsoft.resources.manager import ShaderPair
 from compsoft.resources.shaders import ShaderRegistry
 
 
 class Shader:
-    def __init__(self, vert_path: Path, frag_path: Path):
-        self.program_id = ShaderRegistry.get_program(vert_path, frag_path)
+    @overload
+    def __init__(self, pair: ShaderPair, /) -> None: ...
+
+    @overload
+    def __init__(self, vert_path: Path, frag_path: Path, /): ...
+
+    def __init__(
+        self,
+        vert_path_or_pair: Path | ShaderPair,
+        frag_path: Path | None = None,
+    ):
+        if isinstance(vert_path_or_pair, ShaderPair):
+            vert, frag = vert_path_or_pair
+        elif frag_path is not None:
+            vert, frag = vert_path_or_pair, frag_path
+        else:
+            raise TypeError("Invalid arguments provided.")
+        self.program_id = ShaderRegistry.get_program(vert, frag)
 
         self._uniform_locations: dict[str, int] = {}
 

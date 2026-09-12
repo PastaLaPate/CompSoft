@@ -7,8 +7,7 @@ from compsoft.resources.manager import resources
 
 class DepthMaterial(Material):
     def __init__(self) -> None:
-        shader_pair = resources.get_shader_path("depth")
-        self.shader = Shader(shader_pair.vertex, shader_pair.fragment)
+        self.shader = Shader(resources.get_shader_path("depth"))
 
     def bind_properties(self):
         pass
