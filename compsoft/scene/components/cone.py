@@ -42,12 +42,8 @@ class SimpleConeComponent(SimpleMeshComponent):
             uvs.append((uv0_bot, uv_apex, uv1_bot))
 
             uv_center = vec2(0.5, 0.5)
-            uv_p0 = vec2(
-                0.5 + 0.5 * math.cos(theta0), 0.5 + 0.5 * math.sin(theta0)
-            )
-            uv_p1 = vec2(
-                0.5 + 0.5 * math.cos(theta1), 0.5 + 0.5 * math.sin(theta1)
-            )
+            uv_p0 = vec2(0.5 + 0.5 * math.cos(theta0), 0.5 + 0.5 * math.sin(theta0))
+            uv_p1 = vec2(0.5 + 0.5 * math.cos(theta1), 0.5 + 0.5 * math.sin(theta1))
 
             vertices.append(
                 (

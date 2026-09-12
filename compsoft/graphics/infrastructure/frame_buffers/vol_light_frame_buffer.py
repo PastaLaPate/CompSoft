@@ -14,9 +14,7 @@ from compsoft.graphics.infrastructure.frame_buffers.frame_buffer import (
 class VolumetricLightFrameBuffer(FrameBuffer):
     def color_attachments(self):
         return [
-            ColorAttachment(
-                GL_COLOR_ATTACHMENT0, GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE
-            )
+            ColorAttachment(GL_COLOR_ATTACHMENT0, GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE)
         ]
 
     @property

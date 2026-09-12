@@ -20,12 +20,8 @@ from compsoft.graphics.infrastructure.frame_buffers.frame_buffer import (
 class SceneFrameBuffer(FrameBuffer):
     def color_attachments(self):
         return [
-            ColorAttachment(
-                GL_COLOR_ATTACHMENT0, GL_RGBA16F, GL_RGBA, GL_FLOAT
-            ),
-            ColorAttachment(
-                GL_COLOR_ATTACHMENT1, GL_RGBA16F, GL_RGBA, GL_FLOAT
-            ),
+            ColorAttachment(GL_COLOR_ATTACHMENT0, GL_RGBA16F, GL_RGBA, GL_FLOAT),
+            ColorAttachment(GL_COLOR_ATTACHMENT1, GL_RGBA16F, GL_RGBA, GL_FLOAT),
             ColorAttachment(
                 GL_COLOR_ATTACHMENT2, GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE
             ),

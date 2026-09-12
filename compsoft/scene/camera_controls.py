@@ -49,9 +49,7 @@ class CameraControls:
             return
         ratio = target_speed / self.base_speed
         exponent = math.log2(ratio)
-        self.speed_exponent = max(
-            self.min_exponent, min(self.max_exponent, exponent)
-        )
+        self.speed_exponent = max(self.min_exponent, min(self.max_exponent, exponent))
 
     def pan_camera(self, delta: vec2):
         self.camera.pos += self.camera.right * (delta.x * self.mouse_speed)

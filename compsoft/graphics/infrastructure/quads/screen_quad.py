@@ -127,14 +127,10 @@ class LitScreenQuad(ScreenQuad, ABC):
                 )
             glUniformBlockBinding(self.shader.program_id, self.block_index, 0)
             self.upload_light_space_matrices(light_space_matrices)
-            self.shader.set_uniform_i(
-                "uActiveLightCount", len(light_space_matrices)
-            )
+            self.shader.set_uniform_i("uActiveLightCount", len(light_space_matrices))
         else:
             raise RuntimeError("Light space matrices not set")
 
     def upload_light_space_matrices(self, matrices: dict[int, mat4x4]):
         for light_i, matrix in matrices.items():
-            self.shader.set_uniform_matrix(
-                f"uLightSpaceMatrices[{light_i}]", matrix
-            )
+            self.shader.set_uniform_matrix(f"uLightSpaceMatrices[{light_i}]", matrix)

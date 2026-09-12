@@ -80,9 +80,7 @@ class FrameBuffer(ABC):
         self._build_color_attachments()
         self._build_depth_attachment()
 
-        attachments = [
-            attachment.attachment for attachment in self.color_attachments()
-        ]
+        attachments = [attachment.attachment for attachment in self.color_attachments()]
         glDrawBuffers(len(attachments), attachments)
 
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:

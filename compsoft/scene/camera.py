@@ -6,9 +6,7 @@ from pyglm.glm import mat4x4, vec3, vec4
 
 
 class Camera:
-    def __init__(
-        self, pos: vec3 | None = None, rot: vec3 | None = None
-    ) -> None:
+    def __init__(self, pos: vec3 | None = None, rot: vec3 | None = None) -> None:
         self._pos = pos or vec3(0, 0, 0)
         self._rot = rot or vec3(0, 0, 0)
         self._fov = 90  # in degrees
@@ -148,9 +146,7 @@ class Camera:
     def get_frustum_corners_world_space(self, aspect: float) -> list[vec4]:
         inv = cast(
             mat4x4,
-            glm.inverse(
-                self.get_projection_matrix(aspect) * self.get_view_matrix()
-            ),
+            glm.inverse(self.get_projection_matrix(aspect) * self.get_view_matrix()),
         )
 
         corners = []

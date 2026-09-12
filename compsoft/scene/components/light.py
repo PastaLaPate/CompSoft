@@ -172,9 +172,7 @@ class DirectionalLight(LightComponent):
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
             local_forward = vec3(
                 wrld_matrix
-                * glm.vec4(
-                    local_forward.x, local_forward.y, local_forward.z, 0.0
-                )
+                * glm.vec4(local_forward.x, local_forward.y, local_forward.z, 0.0)
             )
 
         return LightData(
@@ -211,9 +209,7 @@ class SpotLight(LightComponent):
         if self.parent:
             wrld_matrix = self.parent.get_world_matrix()
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
-            dir_vec = vec3(
-                wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0)
-            )
+            dir_vec = vec3(wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0))
             if glm.length(dir_vec) > 0:
                 dir_vec = glm.normalize(dir_vec)
 

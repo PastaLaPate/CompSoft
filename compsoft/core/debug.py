@@ -149,9 +149,7 @@ class Debug:
         for a, b in edges:
             self.add_line(corners[a], corners[b], color)
 
-    def add_box_centered(
-        self, center: vec3, extent: vec3, color: vec3 | None = None
-    ):
+    def add_box_centered(self, center: vec3, extent: vec3, color: vec3 | None = None):
         self.add_box(center - extent, center + extent, color)
 
     def clear(self):

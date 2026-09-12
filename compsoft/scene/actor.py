@@ -99,9 +99,7 @@ class Actor:
         for component in self.components:
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> T | None:
+    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -116,9 +114,7 @@ class Actor:
                 return comp
         return None
 
-    def get_components_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> list[T]:
+    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
         comps = []
         for comp in self.components:
             if isinstance(comp, component_cls):
@@ -197,8 +193,7 @@ class Actor:
                 r_comp.draw(aspect_ratio, world_model_matrix)
             elif (
                 render_pass == RenderPass.SHADOW
-                and r_comp.RENDER_PASS
-                == RenderPass.DEFERRED  # Dont render lights
+                and r_comp.RENDER_PASS == RenderPass.DEFERRED  # Dont render lights
                 and light_view_projection is not None
             ):
                 r_comp.draw_depth(light_view_projection, world_model_matrix)

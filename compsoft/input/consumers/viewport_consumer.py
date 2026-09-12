@@ -33,18 +33,12 @@ BINDING_CAMERA_ORBIT_RELEASE = Binding(
     "camera.orbit.release", Inputs.LMB, trigger_mode=TriggerMode.RELEASED
 )
 
-BINDING_FORWARD = Binding(
-    "viewport.forward", Inputs.W, trigger_mode=TriggerMode.WHILE
-)
+BINDING_FORWARD = Binding("viewport.forward", Inputs.W, trigger_mode=TriggerMode.WHILE)
 BINDING_BACKWARD = Binding(
     "viewport.backward", Inputs.S, trigger_mode=TriggerMode.WHILE
 )
-BINDING_LEFT = Binding(
-    "viewport.left", Inputs.A, trigger_mode=TriggerMode.WHILE
-)
-BINDING_RIGHT = Binding(
-    "viewport.right", Inputs.D, trigger_mode=TriggerMode.WHILE
-)
+BINDING_LEFT = Binding("viewport.left", Inputs.A, trigger_mode=TriggerMode.WHILE)
+BINDING_RIGHT = Binding("viewport.right", Inputs.D, trigger_mode=TriggerMode.WHILE)
 
 BINDING_CAMERA_SPEED = Binding(
     "camera.speed", Inputs.MOUSE_WHEEL, trigger_mode=TriggerMode.AXIS_DELTA

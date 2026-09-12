@@ -108,14 +108,10 @@ class Engine:
         self.input_manager.add_binding(BINDING_GIZMO_CLICK)
         self.input_manager.add_binding(BINDING_GIZMO_CLICK_RELEASE)
 
-        self.input_manager.add_consumer(
-            ViewportInputConsumer(self.cam_controls)
-        )
+        self.input_manager.add_consumer(ViewportInputConsumer(self.cam_controls))
         self.input_manager.add_consumer(SceneClickConsumer(self.scene))
         self.input_manager.add_consumer(GizmoInputConsumer(self.scene))
-        self.window_bridge = WindowInputBridge(
-            self.window.window, self.input_manager
-        )
+        self.window_bridge = WindowInputBridge(self.window.window, self.input_manager)
         # self.cam_controls.add_lmb_click_listener(
         #    lambda pos: self.scene.select_on_click(
         #        self.window.size[0], self.window.size[1], pos
@@ -128,9 +124,7 @@ class Engine:
         self.post_fb = VolumetricLightFrameBuffer(*self.window.size)
 
         self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
-        self.vol_sq = VolumetricLightScreenQuad(
-            resources.get_shader_path("vol_light")
-        )
+        self.vol_sq = VolumetricLightScreenQuad(resources.get_shader_path("vol_light"))
         self.blur_sq = BlurScreenQuad(resources.get_shader_path("blur"))
         self.post_sq = PostScreenQuad(resources.get_shader_path("postprocess"))
 
@@ -138,22 +132,14 @@ class Engine:
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
             self.construct_debug_depth_sq()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
-        self.window.add_window_resize_listener(
-            self.vol_fb._on_window_size_changed
-        )
-        self.window.add_window_resize_listener(
-            self.blur_fb._on_window_size_changed
-        )
-        self.window.add_window_resize_listener(
-            self.post_fb._on_window_size_changed
-        )
+        self.window.add_window_resize_listener(self.vol_fb._on_window_size_changed)
+        self.window.add_window_resize_listener(self.blur_fb._on_window_size_changed)
+        self.window.add_window_resize_listener(self.post_fb._on_window_size_changed)
 
     def construct_debug_depth_sq(self):
         self.debug_depth_sq = DebugDepthScreenQuad()
 
-    def _add_prerender_listener(
-        self, listener: Callable[[float, float], None]
-    ):
+    def _add_prerender_listener(self, listener: Callable[[float, float], None]):
         self.prerender_listeners.append(listener)
 
     def start(self) -> None:
@@ -184,10 +170,7 @@ class Engine:
             self.input_manager.update(self.window.dt)
 
             t += self.window.dt * 100
-            [
-                listener(t, self.window.dt)
-                for listener in self.prerender_listeners
-            ]
+            [listener(t, self.window.dt) for listener in self.prerender_listeners]
 
             if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
                 if self.debug_depth_sq is None:
@@ -205,18 +188,14 @@ class Engine:
                     )
             else:
                 with self.fb:
-                    self.scene.render(
-                        self.window.aspect_ratio, RenderPass.DEFERRED
-                    )
+                    self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
                 self.scene.upload_light_ubo(self.scene.get_lights())
 
                 glCullFace(GL_FRONT)
                 light_space_matrices = {}
                 for active_light in self.scene.active_lights:
                     index = self.shadows_fb.get_light_layer(active_light)
-                    matrix = self.shadows_fb.render_light(
-                        active_light, self.scene
-                    )
+                    matrix = self.shadows_fb.render_light(active_light, self.scene)
                     light_space_matrices[index] = matrix
 
                 glCullFace(GL_BACK)
