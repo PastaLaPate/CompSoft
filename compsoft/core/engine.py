@@ -1,18 +1,38 @@
 from collections import deque
 from collections.abc import Callable
+from typing import cast
 
 import glfw
-from OpenGL.GL import GL_BACK, GL_FRONT, glCullFace
-from pyglm.glm import vec3
+import glm
+from OpenGL.GL import (
+    GL_BACK,
+    GL_BLEND,
+    GL_FALSE,
+    GL_FRONT,
+    GL_ONE,
+    GL_TRUE,
+    glBlendFunc,
+    glCullFace,
+    glDepthMask,
+    glEnable,
+)
+from pyglm.glm import mat4x4, vec2, vec3
 
 from compsoft.core.debug import DebugFlags
 from compsoft.core.window import Window
 from compsoft.graphics.debug_depth_screen_quad import DebugDepthScreenQuad
+from compsoft.graphics.infrastructure.blur_screen_quad import BlurScreenQuad
 from compsoft.graphics.infrastructure.frame_buffer import FrameBuffer
 from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.graphics.infrastructure.screen_quad import ScreenQuad
 from compsoft.graphics.infrastructure.shadows_frame_buffer import (
     ShadowFrameBuffer,
+)
+from compsoft.graphics.infrastructure.vol_light_frame_buffer import (
+    VolumetricLightFrameBuffer,
+)
+from compsoft.graphics.infrastructure.vol_light_screen_quad import (
+    VolumetricLightScreenQuad,
 )
 from compsoft.input.consumers.gizmo_consumer import (
     BINDING_GIZMO_CLICK,
@@ -91,9 +111,18 @@ class Engine:
         #    )
         # )
 
-        self.fb = FrameBuffer(self.window.size[0], self.window.size[1])
+        self.fb = FrameBuffer(*self.window.size)
+        self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
         sq_shader_pair = resources.get_shader_path("lit")
         self.sq = ScreenQuad(sq_shader_pair.vertex, sq_shader_pair.fragment)
+        vol_sq_shader_pair = resources.get_shader_path("vol_light")
+        self.vol_sq = VolumetricLightScreenQuad(
+            vol_sq_shader_pair.vertex, vol_sq_shader_pair.fragment
+        )
+        blur_sq_shader_pair = resources.get_shader_path("blur")
+        self.blur_sq = BlurScreenQuad(
+            blur_sq_shader_pair.vertex, blur_sq_shader_pair.fragment
+        )
         self.debug_depth_sq = None
         if self.scene.debug.has_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP):
             self.construct_debug_depth_sq()
@@ -178,6 +207,45 @@ class Engine:
                     self.fb.selection_tex,
                     self.shadows_fb.shadow_array_tex,
                     self.scene.camera.pos,
+                )
+                self.vol_fb.bind()
+                self.vol_sq.bind_shader(light_space_matrices)
+                self.vol_sq.render(
+                    self.window.size[0],
+                    self.window.size[1],
+                    self.fb.position_tex,
+                    self.fb.normal_tex,
+                    self.fb.color_tex,
+                    self.fb.selection_tex,
+                    self.shadows_fb.shadow_array_tex,
+                    self.scene.camera.pos,
+                    cast(
+                        mat4x4,
+                        glm.inverse(
+                            self.scene.camera.get_projection_matrix(
+                                self.window.aspect_ratio
+                            )
+                            * self.scene.camera.get_view_matrix()
+                        ),
+                    ),
+                )
+                self.vol_fb.unbind()
+                glEnable(GL_BLEND)
+                glBlendFunc(GL_ONE, GL_ONE)
+                glDepthMask(GL_FALSE)
+                glDepthMask(GL_TRUE)
+                self.blur_sq.bind_shader()
+                self.blur_sq.render(
+                    self.window.size[0],
+                    self.window.size[1],
+                    self.vol_fb.color_tex,
+                    blur_direction=vec2(1, 0),
+                )
+                self.blur_sq.render(
+                    self.window.size[0],
+                    self.window.size[1],
+                    self.vol_fb.color_tex,
+                    blur_direction=vec2(0, 1),
                 )
                 self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
 
