@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from compsoft.input.binding import Binding
 from compsoft.input.consumer import InputConsumer
+from compsoft.input.cursors import CursorShape
 from compsoft.input.inputs import InputModifier, Inputs, TriggerMode
 from compsoft.input.state import PointerState
 
@@ -71,7 +72,9 @@ class InputManager:
             eval_modifiers = self.current_modifiers
 
         matching_bindings = [
-            b for b in self.bindings if b.input == input_code and b.trigger_mode == mode
+            b
+            for b in self.bindings
+            if b.input == input_code and b.trigger_mode == mode
         ]
         matching_bindings.sort(key=lambda b: b.chord_weight, reverse=True)
 
@@ -79,11 +82,17 @@ class InputManager:
             if binding.modifier == InputModifier.NONE:
                 matched = eval_modifiers == InputModifier.NONE
             else:
-                matched = (eval_modifiers & binding.modifier) == binding.modifier
+                matched = (
+                    eval_modifiers & binding.modifier
+                ) == binding.modifier
 
             if matched:
                 val = (
-                    (1.0 if mode in (TriggerMode.PRESSED, TriggerMode.WHILE) else 0.0)
+                    (
+                        1.0
+                        if mode in (TriggerMode.PRESSED, TriggerMode.WHILE)
+                        else 0.0
+                    )
                     if value is None
                     else value
                 )
@@ -108,11 +117,28 @@ class InputManager:
             for binding in matching_bindings:
                 if (
                     binding.modifier == InputModifier.NONE
-                    or (self.current_modifiers & binding.modifier) == binding.modifier
+                    or (self.current_modifiers & binding.modifier)
+                    == binding.modifier
                 ) and self.dispatch_action(binding.id, dt, 1.0):
                     break
+        self._update_cursor()
 
-    def dispatch_action(self, action_id: str, dt: float, value: float = 1.0) -> bool:
+    def _update_cursor(self) -> None:
+        if not self.controller or self.pointer.active_drag_action:
+            return
+
+        shape: CursorShape | None = None
+        for consumer in self._consumers:
+            wanted = consumer.on_hover(self.pointer, self.controller)
+            if wanted is not None:
+                shape = wanted
+                break
+
+        self.controller.set_cursor_shape(shape or CursorShape.ARROW)
+
+    def dispatch_action(
+        self, action_id: str, dt: float, value: float = 1.0
+    ) -> bool:
         if not self.controller:
             return False
         if self.pointer.active_drag_action:
@@ -121,6 +147,8 @@ class InputManager:
             )
             return True
         for consumer in self._consumers:
-            if consumer.on_action(action_id, dt, value, self.pointer, self.controller):
+            if consumer.on_action(
+                action_id, dt, value, self.pointer, self.controller
+            ):
                 return True
         return False

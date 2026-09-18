@@ -13,6 +13,7 @@ from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.graphics.materials.light_material import LightMaterial
 from compsoft.graphics.materials.material import Material
 from compsoft.resources.manager import resources
+from compsoft.resources.textures import TextureRegistry
 from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
 from compsoft.scene.components.cube import SimpleCubeComponent
@@ -69,7 +70,7 @@ def main():
 
     actor = scene.add_actor(Actor())
     cube = actor.add_component(SimpleCubeComponent(mat))
-    actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=0.1))
+    actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=1))
     cube.load()
     cube.scale = vec3(100, 1, 100)
 
@@ -113,6 +114,49 @@ def main():
     cylinder_actor = scene.add_actor(Actor())
     cylinder_actor.position = vec3(10, 2, 0)
     cylinder_actor.add_component(SimpleCylinderComponent(mat)).load()
+
+    moving_head_actor = scene.add_actor(Actor())
+
+    mh_base = moving_head_actor.add_component(
+        SimpleCubeComponent(
+            material=Material(TextureRegistry.get_solid_color((30, 30, 30)))
+        )
+    )
+    mh_base.scale = vec3(0.5, 0.2, 0.3)
+    mh_base.load()
+
+    mh_pillar_1 = moving_head_actor.add_component(
+        SimpleCubeComponent(
+            material=Material(TextureRegistry.get_solid_color((30, 30, 30)))
+        )
+    )
+    mh_pillar_1.position = vec3(-0.25 + 0.1 / 2, 0.2 / 2 + 0.4 / 2, 0)
+    mh_pillar_1.scale = vec3(0.1, 0.4, 0.3)
+    mh_pillar_1.load()
+
+    mh_pillar_2 = moving_head_actor.add_component(
+        SimpleCubeComponent(
+            material=Material(TextureRegistry.get_solid_color((30, 30, 30)))
+        )
+    )
+    mh_pillar_2.position = vec3(0.25 - 0.1 / 2, 0.2 / 2 + 0.4 / 2, 0)
+    mh_pillar_2.scale = vec3(0.1, 0.4, 0.3)
+    mh_pillar_2.load()
+
+    mh_head = moving_head_actor.add_child(Actor())
+    mh_head.position = vec3(0, 0.2 / 2 + 0.4 - 0.1, 0)
+    mh_head.rotation = vec3(90, 0, 0)
+    mh_head_cyl = mh_head.add_component(
+        SimpleCylinderComponent(
+            material=Material(TextureRegistry.get_solid_color((90, 90, 90)))
+        )
+    )
+    mh_head_cyl.position = vec3(0, 0.10, 0)
+    mh_head_cyl.scale = vec3(0.35, 0.45, 0.35)
+    mh_head_cyl.load()
+    mh_head.add_component(
+        SpotLight(direction=vec3(0, 1, 0), position=vec3(0, 0.42, 0))
+    )
 
     hq_mat = Material(
         resources.get_texture_path(
@@ -161,6 +205,8 @@ def main():
             smooth_noise(t / 100, 20.0) * 180,
         )
         light_comp2.direction = normalize(-light_actor2.position)
+
+        mh_head.rotation = vec3(smooth_noise(t / 100, 4.0) * 180, 0, 0)
 
     engine._add_prerender_listener(tick)
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from compsoft.input.cursors import CursorShape
+
 if TYPE_CHECKING:
     from compsoft.input.state import PointerState
     from compsoft.input.window_bridge import WindowInputBridge
@@ -16,6 +18,20 @@ class InputConsumer(ABC):
             priority (int, optional): Priority of the input consumer, higher = evaluated first. Defaults to 0.
         """
         self.priority = priority
+
+    def on_hover(
+        self, pointer: PointerState, window: WindowInputBridge
+    ) -> CursorShape | None:
+        """Called everytime the pointer changes position.
+
+        Args:
+            pointer (PointerState): The pointer's state.
+            window (WindowInputBridge): The window input bridge.
+
+        Returns:
+            CursorShape | None: The cursor shape to use if currently hovering something. None if not hovering anything.
+        """
+        return None
 
     @abstractmethod
     def on_action(

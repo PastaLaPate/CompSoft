@@ -56,6 +56,19 @@ class GizmoInputConsumer(InputConsumer):
         self.axis_origin = vec3(0, 0, 0)
         self.axis_start_t = 0.0
 
+    def on_hover(
+        self, pointer: PointerState, window: WindowInputBridge
+    ) -> CursorShape | None:
+        if self.moving_gizmo:
+            return CursorShape.GRAB
+
+        ray_origin, ray_dir = self.scene.compute_ray(
+            window.get_width(), window.get_height(), pointer.current_pos
+        )
+        if self.scene.is_ray_on_gizmo(ray_origin, ray_dir) is not None:
+            return CursorShape.HAND
+        return None
+
     def on_action(
         self,
         action_id: str,
