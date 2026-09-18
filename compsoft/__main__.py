@@ -7,6 +7,7 @@ from OpenGL import GL
 from OpenGL.GL.glget import glGetString
 from pyglm.glm import normalize
 
+from compsoft.core.debug import DebugFlags
 from compsoft.core.engine import Engine
 from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.graphics.materials.light_material import LightMaterial
@@ -59,7 +60,7 @@ def main():
 
     scene = engine.scene
     scene.load()
-    # scene.debug.add_flag(DebugFlags.DEBUG_SELECTION_RAYCAST)
+    scene.debug.add_flag(DebugFlags.DEBUG_FRAME_TIME)
     scene.camera.pos = vec3(0, 7, 0)
     scene.camera.look_at(vec3(5, 10, 5))
 
