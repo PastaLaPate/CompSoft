@@ -5,12 +5,23 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "glfw>=2.10.1",
-    "numpy>=2.5.1",
-    "pillow>=12.3.0",
-    "pyglm>=2.8.3",
-    "pyopengl>=3.1.10",
-    "trimesh>=4.12.2",
+  "glfw>=2.10.1",
+  "numpy>=2.5.1",
+  "pillow>=12.3.0",
+  "pyglm>=2.8.3",
+  "pyopengl>=3.1.10",
+  "trimesh>=4.12.2",
+]
+
+[project.scripts]
+compsoft = "compsoft.__main__:main"
+
+[dependency-groups]
+dev = [
+  "isort>=8.0.1",
+  "pre-commit>=4.6.0",
+  "ruff>=0.15.17",
+  "ty>=0.0.49",
 ]
 
 [build-system]
@@ -29,14 +40,3 @@ members = ["."]
 
 [tool.uv.sources]
 lightshow = { workspace = true }
-
-[dependency-groups]
-dev = [
-    "isort>=8.0.1",
-    "pre-commit>=4.6.0",
-    "ruff>=0.15.17",
-    "ty>=0.0.49",
-]
-
-[project.scripts]
-compsoft = "compsoft.__main__:main"
