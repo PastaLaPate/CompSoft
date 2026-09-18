@@ -1,4 +1,8 @@
 import ctypes
+import statistics
+import time
+from collections import defaultdict, deque
+from contextlib import contextmanager
 from enum import IntFlag, auto
 
 import numpy as np
@@ -22,6 +26,8 @@ from OpenGL.GL import (
     glVertexAttribPointer,
 )
 from pyglm.glm import mat4, vec3
+from rich.live import Live
+from rich.table import Table
 
 from compsoft.graphics.shader import Shader
 from compsoft.resources.manager import resources
@@ -35,6 +41,7 @@ class DebugFlags(IntFlag):
     DEBUG_SELECTION_RAYCAST = auto()
     DEBUG_RENDER_SHADOW_MAP = auto()
     DEBUG_FRAME_TIME = auto()
+    DEBUG_FRAME_TIME_DETAILLED = auto()
 
     DEBUG_ALL = DEBUG_MESH_AABB | DEBUG_SELECTION_RAYCAST
     # fmt: on
@@ -150,9 +157,58 @@ class Debug:
         for a, b in edges:
             self.add_line(corners[a], corners[b], color)
 
-    def add_box_centered(self, center: vec3, extent: vec3, color: vec3 | None = None):
+    def add_box_centered(
+        self, center: vec3, extent: vec3, color: vec3 | None = None
+    ):
         self.add_box(center - extent, center + extent, color)
 
     def clear(self):
         self._debug_vertices.clear()
         self._dirty_vertices = True
+
+
+class Profiler:
+    def __init__(self, window_size: int = 240):
+        self.measurements: defaultdict[str, deque[float]] = defaultdict(
+            lambda: deque(maxlen=window_size)
+        )
+        self._live = Live(refresh_per_second=10)
+        self._live.start()
+
+    @contextmanager
+    def time(self, name: str):
+        start = time.perf_counter()
+        try:
+            yield
+        finally:
+            elapsed = (time.perf_counter() - start) * 1000
+            self.measurements[name.upper()].append(elapsed)
+
+    def record(self, name: str, value: float):
+        self.measurements[name.upper()].append(value)
+
+    def _build_table(self) -> Table:
+        table = Table()
+        table.add_column("NAME")
+        table.add_column("MIN")
+        table.add_column("AVG")
+        table.add_column("P95")
+
+        for name, times in self.measurements.items():
+            if not times:
+                continue
+            t = list(times)
+            p95 = statistics.quantiles(t, n=20)[18] if len(t) > 1 else t[0]
+            table.add_row(
+                name,
+                f"{min(t):.2f}",
+                f"{statistics.mean(t):.2f}",
+                f"{p95:.2f}",
+            )
+        return table
+
+    def summary(self):
+        self._live.update(self._build_table())
+
+    def stop(self):
+        self._live.stop()
