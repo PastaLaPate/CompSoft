@@ -2,7 +2,7 @@ import ctypes
 import statistics
 import time
 from collections import defaultdict, deque
-from contextlib import contextmanager, nullcontext
+from contextlib import nullcontext
 from enum import IntFlag, auto
 
 import numpy as np
@@ -167,11 +167,29 @@ class Debug:
         self._dirty_vertices = True
 
 
+class _Timer:
+    __slots__ = ("name", "profiler", "start")
+
+    def __init__(self, profiler: "Profiler", name: str):
+        self.profiler = profiler
+        self.name = name
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        elapsed = (time.perf_counter() - self.start) * 1000
+        self.profiler.measurements[self.name].append(elapsed)
+        return False
+
+
 class Profiler:
     def __init__(self, window_size: int = 240):
         self.measurements: defaultdict[str, deque[float]] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
+        self._timers: dict[str, _Timer] = {}
         self._live: Live | None = None
 
     def _ensure_live(self):
@@ -182,16 +200,11 @@ class Profiler:
     def time(self, name: str, enabled: bool = True):
         if not enabled:
             return nullcontext()
-        return self._timed(name)
-
-    @contextmanager
-    def _timed(self, name: str):
-        start = time.perf_counter()
-        try:
-            yield
-        finally:
-            elapsed = (time.perf_counter() - start) * 1000
-            self.measurements[name.upper()].append(elapsed)
+        timer = self._timers.get(name)
+        if timer is None:
+            timer = _Timer(self, name.upper())
+            self._timers[name] = timer
+        return timer
 
     def record(self, name: str, value: float, enabled: bool = True):
         if not enabled:
