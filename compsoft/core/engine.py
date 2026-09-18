@@ -165,14 +165,19 @@ class Engine:
         ):
             self.window.clear()
 
+            debug_basic = self.scene.debug.has_flag(
+                DebugFlags.DEBUG_FRAME_TIME
+            )
+            debug_complex = self.scene.debug.has_flag(
+                DebugFlags.DEBUG_FRAME_TIME_DETAILLED
+            )
+
             # Track time in ms
             dt_ms = self.window.dt * 1000
+            self.profiler.record("frame time (ms)", dt_ms, enabled=debug_basic)
+            self.profiler.record("fps", 1000.0 / dt_ms, enabled=debug_basic)
 
-            if self.scene.debug.has_flag(DebugFlags.DEBUG_FRAME_TIME):
-                self.profiler.record("frame time (ms)", dt_ms)
-                self.profiler.record("fps", 1000.0 / dt_ms)
-
-            with self.profiler.time("Inputs"):
+            with self.profiler.time("Inputs", enabled=debug_complex):
                 self.input_manager.begin_frame()
                 self.window.poll_events()
                 self.input_manager.update(self.window.dt)
@@ -198,14 +203,14 @@ class Engine:
                         shadows_tex=self.shadows_fb.shadow_array_tex,
                     )
             else:
-                with self.profiler.time("Deferred"):
+                with self.profiler.time("Deferred", enabled=debug_complex):
                     with self.fb:
                         self.scene.render(
                             self.window.aspect_ratio, RenderPass.DEFERRED
                         )
                     self.scene.upload_light_ubo(self.scene.get_lights())
 
-                with self.profiler.time("Shadow"):
+                with self.profiler.time("Shadow", enabled=debug_complex):
                     glCullFace(GL_FRONT)
                     light_space_matrices = {}
                     for active_light in self.scene.active_lights:
@@ -215,7 +220,7 @@ class Engine:
                         )
                         light_space_matrices[index] = matrix
 
-                with self.profiler.time("Lighting"):
+                with self.profiler.time("Lighting", enabled=debug_complex):
                     glCullFace(GL_BACK)
                     with self.post_fb:
                         self.sq.bind_shader(light_space_matrices)
@@ -234,13 +239,16 @@ class Engine:
                         *self.window.size, self.post_fb.color_tex
                     )
 
-                with self.profiler.time("Forward"):
+                with self.profiler.time("Forward", enabled=debug_complex):
                     self.fb.unbind()  # Get the scene's depth buffer back
                     self.scene.render(
                         self.window.aspect_ratio, RenderPass.FORWARD
                     )
 
-                with self.profiler.time("Vol Lightning"), self.vol_fb:
+                with (
+                    self.profiler.time("Vol Lightning", enabled=debug_complex),
+                    self.vol_fb,
+                ):
                     self.vol_sq.bind_shader(light_space_matrices)
                     self.vol_sq.render(
                         *self.window.size,
@@ -258,7 +266,7 @@ class Engine:
                         ),
                     )
 
-                with self.profiler.time("blur"):
+                with self.profiler.time("Blur", enabled=debug_complex):
                     with self.blur_fb:
                         self.blur_sq.bind_shader()
                         self.blur_sq.render(

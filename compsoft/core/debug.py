@@ -2,7 +2,7 @@ import ctypes
 import statistics
 import time
 from collections import defaultdict, deque
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from enum import IntFlag, auto
 
 import numpy as np
@@ -172,11 +172,20 @@ class Profiler:
         self.measurements: defaultdict[str, deque[float]] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
-        self._live = Live(refresh_per_second=10)
-        self._live.start()
+        self._live: Live | None = None
+
+    def _ensure_live(self):
+        if self._live is None:
+            self._live = Live(refresh_per_second=10)
+            self._live.start()
+
+    def time(self, name: str, enabled: bool = True):
+        if not enabled:
+            return nullcontext()
+        return self._timed(name)
 
     @contextmanager
-    def time(self, name: str):
+    def _timed(self, name: str):
         start = time.perf_counter()
         try:
             yield
@@ -184,7 +193,9 @@ class Profiler:
             elapsed = (time.perf_counter() - start) * 1000
             self.measurements[name.upper()].append(elapsed)
 
-    def record(self, name: str, value: float):
+    def record(self, name: str, value: float, enabled: bool = True):
+        if not enabled:
+            return
         self.measurements[name.upper()].append(value)
 
     def _build_table(self) -> Table:
@@ -208,7 +219,10 @@ class Profiler:
         return table
 
     def summary(self):
-        self._live.update(self._build_table())
+        self._ensure_live()
+        if self._live is not None:
+            self._live.update(self._build_table())
 
     def stop(self):
-        self._live.stop()
+        if self._live is not None:
+            self._live.stop()
