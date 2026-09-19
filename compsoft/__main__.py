@@ -61,6 +61,7 @@ def main():
 
     scene = engine.scene
     scene.load()
+    scene.debug.add_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP)
     scene.debug.add_flag(DebugFlags.DEBUG_FRAME_TIME)
     scene.debug.add_flag(DebugFlags.DEBUG_FRAME_TIME_DETAILLED)
     scene.camera.pos = vec3(0, 7, 0)
