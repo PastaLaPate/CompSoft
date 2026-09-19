@@ -68,12 +68,8 @@ class ShadowFrameBuffer:
         )
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(
-            GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE
-        )
-        glTexParameteri(
-            GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE
-        )
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 
         # Build a new frame buffer
@@ -119,13 +115,28 @@ class ShadowFrameBuffer:
                 glm.radians(spot_angle * 2.0), 1.0, near, far
             )
 
-        light_pos = light_data.position
         light_dir = light_data.direction
+        if glm.length(light_dir) == 0:
+            raise ValueError("Shadow-casting light direction must not be zero")
+        light_dir = glm.normalize(light_dir)
+
+        if light_data.type == LightType.DIRECTIONAL:
+            light_pos = -light_dir * far
+            up = vec3(0, 0, 1) if abs(light_dir.y) > 0.9 else vec3(0, 1, 0)
+            light_target = vec3(0, 0, 0)
+        else:
+            light_pos = light_data.position
+            up = (
+                vec3(0, 0, 1)
+                if abs(glm.dot(light_dir, vec3(0, 1, 0))) > 0.99
+                else vec3(0, 1, 0)
+            )
+            light_target = light_pos + light_dir
 
         light_view = glm.lookAt(
             light_pos,
-            light_pos + light_dir,
-            vec3(0, 1, 0),
+            light_target,
+            up,
         )
 
         vp_matrix: mat4x4 = cast(mat4x4, light_projection * light_view)
