@@ -75,12 +75,8 @@ class ShadowFrameBuffer:
         )
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(
-            GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE
-        )
-        glTexParameteri(
-            GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE
-        )
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 
         # Build a new frame buffer
@@ -98,9 +94,7 @@ class ShadowFrameBuffer:
             self.light_layers[light] = layer
         return self.light_layers[light]  # * CASCADES_N + cascade
 
-    def _compute_vp_matrix(
-        self, light_data: LightData, near=0.1, far=50.0
-    ) -> mat4x4:
+    def _compute_vp_matrix(self, light_data: LightData, near=0.1, far=50.0) -> mat4x4:
         if light_data.type == LightType.DIRECTIONAL:
             light_projection = glm.ortho(-10, 10, -10, 10, near, far)
         else:
