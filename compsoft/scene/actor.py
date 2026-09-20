@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from pyglm import glm
-from pyglm.glm import mat4, mat4x4, vec3
+from pyglm.glm import mat4x4, vec3
 
 from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.scene.components.component import Component, RenderableComponent
@@ -29,8 +29,10 @@ class Actor:
         )  # Euler angles (pitch, yaw, roll) in degrees
         self._scale = glm.vec3(1.0, 1.0, 1.0)
 
-        self.t_matrix = None
+        self.t_matrix: mat4x4 | None = None
         self.dirty_matrix = True
+        self._world_matrix: mat4x4 | None = None
+        self._dirty_world = True
 
     # Children and scene management
 
@@ -43,6 +45,7 @@ class Actor:
 
         if self.scene is not None:
             child.set_scene(self.scene)
+        child._invalidate_world()
         return child
 
     def remove_child(self, child: Actor) -> None:
@@ -51,9 +54,10 @@ class Actor:
             child.parent = None
             # Leaving the parent means leaving the scene, orphan it completely
             child.set_scene(None)
+            child._invalidate_world()
 
     def clear_children(self) -> None:
-        for child in self.children:
+        for child in list(self.children):
             self.remove_child(child)
 
     def set_scene(self, scene):
@@ -97,7 +101,7 @@ class Actor:
             self.components.remove(component)
 
     def clear_components(self):
-        for component in self.components:
+        for component in list(self.components):
             self.remove_component(component)
 
     def get_component_by_type[T: Component](
@@ -128,6 +132,17 @@ class Actor:
 
     # Transform
 
+    def _invalidate(self) -> None:
+        self.dirty_matrix = True
+        self._invalidate_world()
+
+    def _invalidate_world(self) -> None:
+        if self._dirty_world:
+            return
+        self._dirty_world = True
+        for child in self.children:
+            child._invalidate_world()
+
     @property
     def position(self) -> vec3:
         return self._position
@@ -135,7 +150,7 @@ class Actor:
     @position.setter
     def position(self, x: vec3):
         if x != self._position:
-            self.dirty_matrix = True
+            self._invalidate()
         self._position = x
 
     @property
@@ -145,7 +160,7 @@ class Actor:
     @scale.setter
     def scale(self, x: vec3):
         if x != self._scale:
-            self.dirty_matrix = True
+            self._invalidate()
         self._scale = x
 
     @property
@@ -155,7 +170,7 @@ class Actor:
     @rotation.setter
     def rotation(self, x: vec3):
         if x != self._rotation:
-            self.dirty_matrix = True
+            self._invalidate()
         self._rotation = x
 
     # Rendering
@@ -176,12 +191,17 @@ class Actor:
 
     # Walk up tree, shouldnt be used during the render itself as it already has parent_matrix
     def get_world_matrix(self) -> glm.mat4:
+        if not self._dirty_world and self._world_matrix is not None:
+            return self._world_matrix
         local_matrix = self.compute_transform_matrix()
-
         if self.parent is not None:
-            return cast(mat4, self.parent.get_world_matrix() * local_matrix)
-
-        return local_matrix
+            self._world_matrix = cast(
+                mat4x4, self.parent.get_world_matrix() * local_matrix
+            )
+        else:
+            self._world_matrix = local_matrix
+        self._dirty_world = False
+        return self._world_matrix
 
     def render(
         self,
