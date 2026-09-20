@@ -56,16 +56,16 @@ In [engine.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimiz
 In [shadows_frame_buffer.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/infrastructure/frame_buffers/shadows_frame_buffer.py)
 and [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/scene.py):
 
-- Cache each light's view-projection matrix until its position, direction,
-  type, angle, or relevant parent transform changes.
-- Add explicit shadow-caster dirty tracking. A static scene should not redraw
+- [x] Cache each light's view-projection matrix until its position, direction,
+      type, angle, or relevant parent transform changes.
+- [] Add explicit shadow-caster dirty tracking. A static scene should not redraw
   every shadow layer every frame; moving a caster or shadow light invalidates the
   affected maps.
-- When a map must be redrawn, traverse a prebuilt list of shadow-casting
+- [] When a map must be redrawn, traverse a prebuilt list of shadow-casting
   renderables instead of recursively walking every actor and checking every
   component.
-- Keep the current culling, framebuffer layer, resolution, and visual behavior.
-- Do not add speculative frustum/visibility culling in this pass; measure first,
+- [] Keep the current culling, framebuffer layer, resolution, and visual behavior.
+- [] Do not add speculative frustum/visibility culling in this pass; measure first,
   because incorrect culling would trade CPU time for missing shadows.
 
 ### 3. Deferred pass: remove repeated scene traversal and matrix work

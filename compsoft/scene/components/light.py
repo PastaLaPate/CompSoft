@@ -98,6 +98,32 @@ class LightData:
     def __repr__(self):
         return f"Light[type={self.type},pos={self.position}]"
 
+    def __eq__(self, other):
+        if not isinstance(other, LightData):
+            return NotImplemented
+        return (
+            self.type == other.type
+            and self.position == other.position
+            and self.direction == other.direction
+            and self.color == other.color
+            and self.intensity == other.intensity
+            and self.inner_cutoff == other.inner_cutoff
+            and self.outer_cutoff == other.outer_cutoff
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                self.type,
+                self.position,
+                self.direction,
+                self.color,
+                self.intensity,
+                self.inner_cutoff,
+                self.outer_cutoff,
+            )
+        )
+
 
 class LightComponent(ABC, Component):
     def on_enter_scene(self, scene: "Scene"):
@@ -171,7 +197,9 @@ class DirectionalLight(LightComponent):
         if self.parent:
             wrld_matrix = self.parent.get_world_matrix()
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
-            dir_vec = vec3(wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0))
+            dir_vec = vec3(
+                wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0)
+            )
 
         if glm.length(dir_vec) > 0:
             dir_vec = glm.normalize(dir_vec)
@@ -211,7 +239,9 @@ class SpotLight(LightComponent):
         if self.parent:
             wrld_matrix = self.parent.get_world_matrix()
             pos = vec3(wrld_matrix * vec4(pos.x, pos.y, pos.z, 1.0))
-            dir_vec = vec3(wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0))
+            dir_vec = vec3(
+                wrld_matrix * vec4(dir_vec.x, dir_vec.y, dir_vec.z, 0.0)
+            )
             if glm.length(dir_vec) > 0:
                 dir_vec = glm.normalize(dir_vec)
 
