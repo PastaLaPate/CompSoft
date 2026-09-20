@@ -83,7 +83,7 @@ class Engine:
 
         self.cam = Camera(vec3(0, 0, 0))
         self.cam_controls = CameraControls(self.cam)
-        self.shadows_fb = ShadowFrameBuffer(1)
+        self.shadows_fb = ShadowFrameBuffer(5)
         self.scene = Scene(self.cam, self.shadows_fb)
 
         self.pointer_state = PointerState()

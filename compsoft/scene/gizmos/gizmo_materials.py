@@ -3,10 +3,19 @@ from compsoft.resources.textures import TextureRegistry
 
 
 class _GizmoMaterialsMeta(type):
+    _center_point_mat = None
     _x_axis_mat = None
     _y_axis_mat = None
     _z_axis_mat = None
     _selected_axis_mat = None
+
+    @property
+    def CENTER_POINT_MAT(cls):
+        if cls._center_point_mat is None:
+            cls._center_point_mat = LightMaterial(
+                TextureRegistry.get_solid_color((1.0, 1.0, 1.0))
+            )
+        return cls._center_point_mat
 
     @property
     def X_AXIS_MAT(cls):
