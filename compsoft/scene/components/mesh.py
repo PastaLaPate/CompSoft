@@ -34,6 +34,7 @@ from compsoft.graphics.materials.material import Material
 from compsoft.graphics.ray_trace import (
     IntersectResult,
     RayTrace,
+    ray_aabb_intersect,
     ray_tri_intersect,
 )
 from compsoft.graphics.vbo_indexer import index_vbo
@@ -369,6 +370,15 @@ class SimpleMeshComponent(RenderableComponent):
     def ray_intersects(self, origin: vec3, dir: vec3, find_any: bool = False):
         if self.world_space_matrix is None:
             return False, 0
+
+        transformed_aabb = self.get_transformed_bounding_box()
+        aabb_intersect = ray_aabb_intersect(
+            RayTrace(origin, dir), transformed_aabb
+        )
+        # Doesnt even touch aabb
+        if aabb_intersect[0] == IntersectResult.REJECT:
+            return False, float("inf")
+
         world_matrix = self.world_space_matrix * self.get_transform_matrix()
         inv_matrix: mat4 = cast(
             mat4,

@@ -64,6 +64,7 @@ def main():
     # scene.debug.add_flag(DebugFlags.DEBUG_RENDER_SHADOW_MAP)
     scene.debug.add_flag(DebugFlags.DEBUG_FRAME_TIME)
     scene.debug.add_flag(DebugFlags.DEBUG_FRAME_TIME_DETAILLED)
+    scene.debug.add_flag(DebugFlags.DEBUG_MESH_AABB)
     scene.camera.pos = vec3(0, 7, 0)
     scene.camera.look_at(vec3(5, 10, 5))
 
@@ -85,7 +86,9 @@ def main():
 
     light_actor = scene.add_actor(Actor())
     light_cube = light_actor.add_component(
-        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
     )
     light_actor.position = vec3(0, 10, 0)
     light_cube.RENDER_PASS = RenderPass.FORWARD
@@ -96,7 +99,9 @@ def main():
 
     light_actor2 = scene.add_actor(Actor())
     light_cube2 = light_actor2.add_component(
-        SimpleCubeComponent(LightMaterial(resources.get_texture_path("mc_dirt.png")))
+        SimpleCubeComponent(
+            LightMaterial(resources.get_texture_path("mc_dirt.png"))
+        )
     )
     light_cube2.RENDER_PASS = RenderPass.FORWARD
     light_comp2 = light_actor2.add_component(SpotLight())
@@ -151,7 +156,9 @@ def main():
     mh_head_cyl.position = vec3(0, 0.10, 0)
     mh_head_cyl.scale = vec3(0.35, 0.45, 0.35)
     mh_head_cyl.load()
-    mh_head.add_component(SpotLight(direction=vec3(0, 1, 0), position=vec3(0, 0.42, 0)))
+    mh_head.add_component(
+        SpotLight(direction=vec3(0, 1, 0), position=vec3(0, 0.42, 0))
+    )
 
     hq_mat = Material(
         resources.get_texture_path(

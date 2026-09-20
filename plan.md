@@ -72,14 +72,14 @@ and [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimiz
 
 In [actor.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/actor.py):
 
-- Maintain cached renderable lists for `DEFERRED` and `FORWARD`; shadow uses the
+- [] Maintain cached renderable lists for `DEFERRED` and `FORWARD`; shadow uses the
   deferred list.
-- Cache each actor's world matrix and invalidate only the changed subtree when a
-  local transform or parent changes.
-- During traversal, compute a changed actor's world matrix once and pass it to
-  children. Reuse the cached world matrix in deferred, forward, and shadow
-  passes.
-- Keep the current parent-before-child ordering and draw behavior.
+- [x] Cache each actor's world matrix and invalidate only the changed subtree when a
+      local transform or parent changes.
+- [x] During traversal, compute a changed actor's world matrix once and pass it to
+      children. Reuse the cached world matrix in deferred, forward, and shadow
+      passes.
+- [] Keep the current parent-before-child ordering and draw behavior.
 
 This directly targets the 0.75/0.38 ms deferred and 0.80/0.32 ms shadow
 regions, rather than optimizing the already-cheap input path.

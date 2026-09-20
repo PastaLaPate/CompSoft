@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
@@ -18,6 +19,9 @@ class Actor:
         self.name: str = name
         self.id: UUID | None = None
         self.components: list[Component] = []
+        self._components_by_type: dict[type[Component], list[Component]] = (
+            defaultdict(list)
+        )
         self.scene: Scene | None = None
 
         self.parent: Actor | None = None  # Top Level
@@ -90,15 +94,21 @@ class Actor:
         component.parent = self
         if self.scene is not None:
             component.on_enter_scene(self.scene)
+        for cls in type(component).__mro__:
+            if issubclass(cls, Component):
+                self._components_by_type[cls].append(component)
         return component
 
     def remove_component(self, component: Component):
+        if component not in self.components:
+            return
+        if self.scene is not None:
+            component.on_exit_scene()
         component.parent = None
-        if component in self.components:
-            if self.scene is not None:
-                component.on_exit_scene()
-            component.parent = None
-            self.components.remove(component)
+        self.components.remove(component)
+        for cls in type(component).__mro__:
+            if issubclass(cls, Component):
+                self._components_by_type[cls].remove(component)
 
     def clear_components(self):
         for component in list(self.components):
@@ -115,20 +125,13 @@ class Actor:
         Returns:
             _type_: A T component instance.
         """
-        # Under the hood, lookup logic:
-        for comp in self.components:
-            if isinstance(comp, component_cls):
-                return comp
-        return None
+        comps = self._components_by_type.get(component_cls)
+        return cast(T, comps[0]) if comps else None
 
     def get_components_by_type[T: Component](
         self, component_cls: type[T]
     ) -> list[T]:
-        comps = []
-        for comp in self.components:
-            if isinstance(comp, component_cls):
-                comps.append(comp)
-        return comps
+        return cast(list[T], self._components_by_type.get(component_cls, []))
 
     # Transform
 
@@ -206,28 +209,25 @@ class Actor:
     def render(
         self,
         aspect_ratio: float,
-        parent_matrix: glm.mat4,
         render_pass: RenderPass,
         light_view_projection: mat4x4 | None = None,
     ):
-        world_model_matrix = cast(
-            glm.mat4, parent_matrix * self.compute_transform_matrix()
-        )
         for r_comp in self.get_components_by_type(RenderableComponent):
             if render_pass == r_comp.RENDER_PASS:
-                r_comp.draw(aspect_ratio, world_model_matrix)
+                r_comp.draw(aspect_ratio, self.get_world_matrix())
             elif (
                 render_pass == RenderPass.SHADOW
                 and r_comp.RENDER_PASS
                 == RenderPass.DEFERRED  # Dont render lights
                 and light_view_projection is not None
             ):
-                r_comp.draw_depth(light_view_projection, world_model_matrix)
+                r_comp.draw_depth(
+                    light_view_projection, self.get_world_matrix()
+                )
 
         for child in self.children:
             child.render(
                 aspect_ratio,
-                world_model_matrix,
                 render_pass,
                 light_view_projection=light_view_projection,
             )

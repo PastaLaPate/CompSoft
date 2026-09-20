@@ -59,7 +59,9 @@ class Scene:
         ray_o, ray_d = self.compute_ray(w, h, pos)
         return self.select_component(ray_o, ray_d)
 
-    def compute_ray(self, w: int, h: int, cursor_pos: vec2) -> tuple[vec4, vec4]:
+    def compute_ray(
+        self, w: int, h: int, cursor_pos: vec2
+    ) -> tuple[vec4, vec4]:
         ndc_x = (cursor_pos.x / w) * 2.0 - 1.0
         ndc_y = (
             1.0 - (cursor_pos.y / h) * 2.0
@@ -97,7 +99,7 @@ class Scene:
         for axis in list(Axis):
             components = current_gizmo.get_axis_components(axis)
             for comp in components:
-                intersects, t = comp.ray_intersects(
+                intersects, _t = comp.ray_intersects(
                     vec3(ray_origin), vec3(ray_dir), True
                 )
                 if intersects:
@@ -125,7 +127,9 @@ class Scene:
         closest_comp: SimpleMeshComponent | None = None
         closest_t = float("inf")
         for comp in mesh_components:
-            intersects, t = comp.ray_intersects(vec3(ray_origin), vec3(ray_dir), False)
+            intersects, t = comp.ray_intersects(
+                vec3(ray_origin), vec3(ray_dir), False
+            )
             if intersects and t < closest_t:
                 closest_t = t
                 closest_comp = comp
@@ -136,7 +140,9 @@ class Scene:
         if closest_comp is not None and closest_comp.parent is not None:
             # print("selected", closest_comp)
             closest_comp.selected = True
-            for comp in closest_comp.parent.get_components_by_type(SimpleMeshComponent):
+            for comp in closest_comp.parent.get_components_by_type(
+                SimpleMeshComponent
+            ):
                 comp.selected = True
             self.translation_gizmo.selected_actor = None
             self.translation_gizmo.position = closest_comp.parent.position
@@ -234,7 +240,7 @@ class Scene:
 
     def render(self, aspect_ratio: float, render_pass: RenderPass):
         for actor in self.root_actors:
-            actor.render(aspect_ratio, mat4(), render_pass)  # pass identity
+            actor.render(aspect_ratio, render_pass)  # pass identity
         if render_pass == RenderPass.FORWARD:
             [self.debug.add_line(*line) for line in self.debug_rays]
 
@@ -249,13 +255,12 @@ class Scene:
             self.debug.clear()
 
             glClear(GL_DEPTH_BUFFER_BIT)
-            self.translation_gizmo.render(aspect_ratio, mat4(), render_pass)
+            self.translation_gizmo.render(aspect_ratio, render_pass)
 
     def render_shadow_map(self, light_view_projection: mat4):
         for actor in self.root_actors:
             actor.render(
                 1.0,
-                mat4(),
                 RenderPass.SHADOW,
                 light_view_projection=light_view_projection,
             )  # pass identity
