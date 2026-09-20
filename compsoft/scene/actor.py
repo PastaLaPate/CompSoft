@@ -19,8 +19,8 @@ class Actor:
         self.name: str = name
         self.id: UUID | None = None
         self.components: list[Component] = []
-        self._components_by_type: dict[type[Component], list[Component]] = (
-            defaultdict(list)
+        self._components_by_type: dict[type[Component], list[Component]] = defaultdict(
+            list
         )
         self.scene: Scene | None = None
 
@@ -114,9 +114,7 @@ class Actor:
         for component in list(self.components):
             self.remove_component(component)
 
-    def get_component_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> T | None:
+    def get_component_by_type[T: Component](self, component_cls: type[T]) -> T | None:
         """Gets first component of the type `component_cls`
 
         Args:
@@ -128,9 +126,7 @@ class Actor:
         comps = self._components_by_type.get(component_cls)
         return cast(T, comps[0]) if comps else None
 
-    def get_components_by_type[T: Component](
-        self, component_cls: type[T]
-    ) -> list[T]:
+    def get_components_by_type[T: Component](self, component_cls: type[T]) -> list[T]:
         return cast(list[T], self._components_by_type.get(component_cls, []))
 
     # Transform
@@ -217,13 +213,10 @@ class Actor:
                 r_comp.draw(aspect_ratio, self.get_world_matrix())
             elif (
                 render_pass == RenderPass.SHADOW
-                and r_comp.RENDER_PASS
-                == RenderPass.DEFERRED  # Dont render lights
+                and r_comp.RENDER_PASS == RenderPass.DEFERRED  # Dont render lights
                 and light_view_projection is not None
             ):
-                r_comp.draw_depth(
-                    light_view_projection, self.get_world_matrix()
-                )
+                r_comp.draw_depth(light_view_projection, self.get_world_matrix())
 
         for child in self.children:
             child.render(

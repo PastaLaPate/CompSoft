@@ -91,9 +91,7 @@ def ray_aabb_intersect(
     len_: float | None = None,
 ) -> tuple[IntersectResult, float, float]:
     if ray_type == RayType.Segment and (len_ is None or len_ < 0):
-        raise ValueError(
-            "Len should be specified if Raytype == RayType.Segment."
-        )
+        raise ValueError("Len should be specified if Raytype == RayType.Segment.")
     t_near = AABB_INTERSECT_T_NEAR_MAP[ray_type]
     t_far = (
         len_ or 1.0
