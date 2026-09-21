@@ -193,7 +193,7 @@ class Actor:
         return m
 
     # Walk up tree, shouldnt be used during the render itself as it already has parent_matrix
-    def get_world_matrix(self) -> glm.mat4:
+    def get_world_matrix(self) -> glm.mat4x4:
         if not self._dirty_world and self._world_matrix is not None:
             return self._world_matrix
         local_matrix = self.compute_transform_matrix()

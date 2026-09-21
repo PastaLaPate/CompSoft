@@ -28,6 +28,7 @@ from compsoft.graphics.ray_trace import (
 )
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
+from compsoft.scene.components.component import RenderableComponent
 from compsoft.scene.components.light import LightComponent, LightData
 from compsoft.scene.components.mesh import SimpleMeshComponent
 from compsoft.scene.gizmos.axes import Axis
@@ -47,6 +48,7 @@ class Scene:
         self.root_actors: list[Actor] = []
         self.registry: dict[uuid.UUID, Actor] = {}
         self.active_lights: list[LightComponent] = []
+        self.shadow_casters: list[RenderableComponent] = []
         self.lights_ubo_id = -1
 
         self.debug = Debug()
@@ -258,9 +260,14 @@ class Scene:
             self.translation_gizmo.render(aspect_ratio, render_pass)
 
     def render_shadow_map(self, light_view_projection: mat4):
-        for actor in self.root_actors:
-            actor.render(
-                1.0,
-                RenderPass.SHADOW,
-                light_view_projection=light_view_projection,
-            )  # pass identity
+        for caster in self.shadow_casters:
+            if caster.parent:
+                caster.draw_depth(
+                    light_view_projection, caster.parent.get_world_matrix()
+                )
+        # for actor in self.root_actors:
+        #    actor.render(
+        #        1.0,
+        #        RenderPass.SHADOW,
+        #        light_view_projection=light_view_projection,
+        #    )  # pass identity

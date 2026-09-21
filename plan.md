@@ -72,8 +72,8 @@ and [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimiz
 
 In [actor.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/actor.py):
 
-- [] Maintain cached renderable lists for `DEFERRED` and `FORWARD`; shadow uses the
-  deferred list.
+- [x] Maintain cached renderable lists for `DEFERRED` and `FORWARD`; shadow uses the
+      deferred list.
 - [x] Cache each actor's world matrix and invalidate only the changed subtree when a
       local transform or parent changes.
 - [x] During traversal, compute a changed actor's world matrix once and pass it to
