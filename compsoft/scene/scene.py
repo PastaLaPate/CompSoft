@@ -61,7 +61,9 @@ class Scene:
         ray_o, ray_d = self.compute_ray(w, h, pos)
         return self.select_component(ray_o, ray_d)
 
-    def compute_ray(self, w: int, h: int, cursor_pos: vec2) -> tuple[vec4, vec4]:
+    def compute_ray(
+        self, w: int, h: int, cursor_pos: vec2
+    ) -> tuple[vec4, vec4]:
         ndc_x = (cursor_pos.x / w) * 2.0 - 1.0
         ndc_y = (
             1.0 - (cursor_pos.y / h) * 2.0
@@ -96,14 +98,18 @@ class Scene:
     def is_ray_on_gizmo(self, ray_origin: vec4, ray_dir: vec4) -> Axis | None:
         current_gizmo = self.translation_gizmo
 
+        t_max = float("inf")
+        closest_axis = None
         for axis in list(Axis):
             components = current_gizmo.get_axis_components(axis)
             for comp in components:
-                intersects, _t = comp.ray_intersects(
-                    vec3(ray_origin), vec3(ray_dir), True
+                intersects, t = comp.ray_intersects(
+                    vec3(ray_origin), vec3(ray_dir), False
                 )
-                if intersects:
-                    return axis
+                if intersects and t < t_max:
+                    closest_axis = axis
+                    t_max = t
+        return closest_axis
 
     def select_component(self, ray_origin: vec4, ray_dir: vec4) -> bool:
         all_mesh_components = []
@@ -127,7 +133,9 @@ class Scene:
         closest_comp: SimpleMeshComponent | None = None
         closest_t = float("inf")
         for comp in mesh_components:
-            intersects, t = comp.ray_intersects(vec3(ray_origin), vec3(ray_dir), False)
+            intersects, t = comp.ray_intersects(
+                vec3(ray_origin), vec3(ray_dir), False
+            )
             if intersects and t < closest_t:
                 closest_t = t
                 closest_comp = comp
@@ -138,7 +146,9 @@ class Scene:
         if closest_comp is not None and closest_comp.parent is not None:
             # print("selected", closest_comp)
             closest_comp.selected = True
-            for comp in closest_comp.parent.get_components_by_type(SimpleMeshComponent):
+            for comp in closest_comp.parent.get_components_by_type(
+                SimpleMeshComponent
+            ):
                 comp.selected = True
             self.translation_gizmo.selected_actor = None
             self.translation_gizmo.position = closest_comp.parent.position
