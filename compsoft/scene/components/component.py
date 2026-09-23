@@ -33,7 +33,37 @@ class Component:
 
 
 class RenderableComponent(ABC, Component):
-    RENDER_PASS: RenderPass = RenderPass.DEFERRED
+    _RENDER_PASS: RenderPass = RenderPass.DEFERRED
+
+    @property
+    def RENDER_PASS(self):
+        return self._RENDER_PASS
+
+    @RENDER_PASS.setter
+    def RENDER_PASS(self, pass_: RenderPass):
+        if self.parent and self.parent.scene:
+            if (
+                self._RENDER_PASS == RenderPass.DEFERRED
+                and pass_ != RenderPass.DEFERRED
+            ):
+                self.parent.scene.shadow_casters.remove(self)
+            elif (
+                self._RENDER_PASS != RenderPass.DEFERRED
+                and pass_ == RenderPass.DEFERRED
+            ):
+                self.parent.scene.shadow_casters.append(self)
+        self._RENDER_PASS = pass_
+
+    def on_enter_scene(self, scene: Scene):
+        if (
+            self._RENDER_PASS == RenderPass.DEFERRED
+            and not self in scene.shadow_casters
+        ):
+            scene.shadow_casters.append(self)
+
+    def on_exit_scene(self):
+        if self.parent and self.parent.scene:
+            self.parent.scene.shadow_casters.remove(self)
 
     @abstractmethod
     def load(self): ...
@@ -48,4 +78,6 @@ class RenderableComponent(ABC, Component):
     def draw(self, aspect_ratio: float, world_model_matrix: mat4): ...
 
     @abstractmethod
-    def draw_depth(self, light_view_projection: mat4x4, world_model_matrix: mat4x4): ...
+    def draw_depth(
+        self, light_view_projection: mat4x4, world_model_matrix: mat4x4
+    ): ...

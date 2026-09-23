@@ -67,6 +67,7 @@ class SimpleMeshComponent(RenderableComponent):
             material (Material): The shader material bundle.
             dynamic (bool, optional): Will the triangles or colors be updated? Defaults to False.
         """
+        super().__init__()
         self._triangles = triangles
         self._colors: list[vec3] = [  # Default white vertex color
             vec3(1, 1, 1) for _ in range(len(triangles) * 3)
@@ -363,7 +364,9 @@ class SimpleMeshComponent(RenderableComponent):
 
         self._aabb = (mi, ma)
 
-    def ray_intersects(self, origin: vec3, dir: vec3, find_any: bool = False):
+    def ray_intersects(
+        self, origin: vec3, dir: vec3, find_any: bool = False
+    ) -> tuple[bool, float]:
         if self.world_space_matrix is None:
             return False, 0
 

@@ -1,126 +1,157 @@
-# Engine CPU-overhead optimization plan
+# Engine optimization audit and next-step plan
 
-## Goal, based on the supplied timings
+## Current measurements
 
-The measured CPU-side render work is already very small: the two samples total
-2.36 ms and 1.31 ms, while the frame-time deque reports 3.02 ms. Input is only
-0.03-0.05 ms and should not be optimized first. The priority order is therefore:
+The current profile is substantially better than the earlier sample, but the
+remaining work is concentrated in scene rendering:
 
-1. Shadow pass: 0.80/0.32 ms (largest variable cost).
-2. Deferred pass: 0.75/0.38 ms (second-largest variable cost).
-3. Forward pass: 0.34/0.26 ms.
-4. Lighting: 0.20/0.11 ms.
-5. Volumetric and blur: 0.11/0.09 and 0.09/0.07 ms.
+| Region     |     Min |     Avg |     P95 | Interpretation                                              |
+| ---------- | ------: | ------: | ------: | ----------------------------------------------------------- |
+| Frame time | 2.45 ms | 2.81 ms | 3.60 ms | Includes work outside the stage sum and timing/swap effects |
+| Input      | 0.02 ms | 0.04 ms | 0.10 ms | Not worth prioritizing                                      |
+| Deferred   | 0.40 ms | 0.50 ms | 0.62 ms | Highest repeatable scene traversal cost                     |
+| Shadow     | 0.50 ms | 0.57 ms | 0.67 ms | Highest render-pass cost                                    |
+| Lighting   | 0.09 ms | 0.11 ms | 0.15 ms | Small screen-quad/driver cost                               |
+| Forward    | 0.41 ms | 0.50 ms | 0.74 ms | Comparable to deferred and more variable                    |
+| Volumetric | 0.08 ms | 0.09 ms | 0.13 ms | Low priority                                                |
+| Blur       | 0.05 ms | 0.07 ms | 0.09 ms | Low priority                                                |
 
-The first pass should target shadow/deferred scene traversal and repeated
-transform/render dispatch. It should not spend implementation complexity on
-input dispatch or micro-optimizing 0.07-0.11 ms post-processing calls until
-the larger passes are measured and improved.
+The measured stage average is about 1.84 ms, leaving roughly 0.97 ms in
+`Random`, listener work, framebuffer transitions, timing, and buffer swap or
+driver scheduling. The first task is to make that accounting explicit rather
+than optimizing based on the incomplete stage sum.
 
-The discrepancy between the reported 3.02 ms frame delta and the measured
-1.31-2.36 ms render total must also be made explicit: `window.dt` is wall-clock
-time between frame starts and includes buffer swap/driver scheduling, while
-the debug total starts after `window.clear()` and excludes the swap. These
-numbers are not interchangeable.
+## Audit of implemented optimizations
 
-## Baseline and measurement
+### Implemented and useful
 
-1. Add an opt-in `Engine` profiling mode rather than printing timings every frame.
-2. Measure these exact regions separately:
-   - `InputManager.begin_frame/update`
-   - prerender listeners
-   - deferred actor traversal/draw dispatch
-   - shadow rendering, split into `LightComponent.get_data`, matrix setup, and shadow actor traversal
-   - lighting/post/volumetric/blur orchestration
-   - forward actor traversal/debug/gizmo work
-3. Record counts for root actors, total actors, renderable components, active lights, shadow lights, and draw calls.
-4. Fix the existing timing metric: replace `sum(frame_times)` on every frame with a rolling sum, and do not calculate debug-only timings unless profiling is enabled.
+- [shader.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/shader.py)
+  now caches uniform locations, avoiding repeated `glGetUniformLocation`.
+- [screen_quad.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/infrastructure/quads/screen_quad.py)
+  caches the lighting uniform-block index.
+- [engine.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/core/engine.py)
+  has stage timing output and throttled logging, which made the current profile
+  possible.
+- The volumetric shader reduced its sampling workload; this is a GPU-side
+  optimization and likely explains part of the lower volumetric time.
+- The post-process shader was simplified; this is also a GPU-side optimization.
 
-## Concrete changes
+### Not implemented despite the earlier plan
 
-### 1. Measure the actual target before changing it
+- [actor.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/actor.py)
+  still recursively visits every actor for every pass and filters components
+  with `get_components_by_type`.
+- [manager.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/input/manager.py)
+  still filters and sorts bindings on every event and for every held key.
+  This remains low priority because input averages 0.04 ms.
+- [camera.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/camera.py)
+  caches only the view matrix; projection and inverse view-projection are
+  rebuilt.
+- [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/scene.py)
+  allocates a NumPy UBO buffer and rebuilds every light's dtype data each frame.
+- [shadows_frame_buffer.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/infrastructure/frame_buffers/shadows_frame_buffer.py)
+  recomputes every light matrix and redraws every shadow map every frame.
+- Screen-quad sampler uniforms and texture/state transitions are still issued
+  every pass; this is lower priority than scene traversal.
+- The profiler still computes `sum(frame_times)` every frame, does not report
+  p95 internally, and does not time `swap_buffers` separately.
+
+## CPU track: prioritized implementation
+
+### 1. Correct the profiler before optimizing
 
 In [engine.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/core/engine.py):
 
-- Keep the existing stage timings, but add separate timings for Python traversal
-  and the OpenGL draw calls inside deferred and shadow passes.
-- Count actor visits, renderable-component checks, matrix computations, shadow
-  lights, and draw calls per pass.
-- Record min/average/p95 over a window rather than only the instantaneous
-  sample, because the supplied deferred/shadow values vary by roughly 2x.
-- Add a `swap_buffers` timing boundary so wall-clock frame time can be reconciled
-  with the debug total.
+- Maintain a rolling sum instead of calling `sum(frame_times)` every frame.
+- Add explicit timings for prerender listeners, framebuffer bind/unbind work,
+  and `swap_buffers`.
+- Store bounded per-stage samples and report min/average/p95 from the same
+  window as frame time.
+- Add counters for actor visits, renderable checks, matrix calculations,
+  shadow redraws, and draw calls.
 
-### 2. Shadow pass: optimize the dominant variable cost first
+This will explain the missing ~0.97 ms and prevent optimizing the wrong region.
 
-In [shadows_frame_buffer.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/infrastructure/frame_buffers/shadows_frame_buffer.py)
+### 2. Share scene traversal data between deferred, shadow, and forward
+
+In [actor.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/actor.py)
 and [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/scene.py):
 
-- [x] Cache each light's view-projection matrix until its position, direction,
-      type, angle, or relevant parent transform changes.
-- [] Add explicit shadow-caster dirty tracking. A static scene should not redraw
-  every shadow layer every frame; moving a caster or shadow light invalidates the
-  affected maps.
-- [] When a map must be redrawn, traverse a prebuilt list of shadow-casting
-  renderables instead of recursively walking every actor and checking every
-  component.
-- [] Keep the current culling, framebuffer layer, resolution, and visual behavior.
-- [] Do not add speculative frustum/visibility culling in this pass; measure first,
-  because incorrect culling would trade CPU time for missing shadows.
+- Maintain ordered scene-level lists of deferred renderables, forward
+  renderables, and shadow casters, updated on actor/component scene changes.
+- Preserve parent-before-child ordering when rebuilding these lists.
+- Cache actor world matrices and invalidate descendants when local transforms or
+  parenting changes.
+- Compute each renderable's complete world matrix once per invalidated update,
+  then reuse it for deferred, shadow, and forward passes.
+- Keep gizmos and selection behavior separate so the optimization does not
+  accidentally make editor-only geometry cast shadows.
 
-### 3. Deferred pass: remove repeated scene traversal and matrix work
+This directly targets the 0.50 ms deferred, 0.57 ms shadow, and 0.50 ms
+forward averages without changing rendering semantics.
 
-In [actor.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/actor.py):
+### 3. Add explicit shadow invalidation
 
-- [] Maintain cached renderable lists for `DEFERRED` and `FORWARD`; shadow uses the
-  deferred list.
-- [x] Cache each actor's world matrix and invalidate only the changed subtree when a
-      local transform or parent changes.
-- [x] During traversal, compute a changed actor's world matrix once and pass it to
-      children. Reuse the cached world matrix in deferred, forward, and shadow
-      passes.
-- [] Keep the current parent-before-child ordering and draw behavior.
+In [shadows_frame_buffer.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/graphics/infrastructure/frame_buffers/shadows_frame_buffer.py):
 
-This directly targets the 0.75/0.38 ms deferred and 0.80/0.32 ms shadow
-regions, rather than optimizing the already-cheap input path.
+- Cache each light's view-projection matrix based on light type, direction,
+  position, angle, and parent transform version.
+- Track a dirty bit per shadow layer.
+- Invalidate a layer when its light changes or a shadow-casting renderable's
+  world transform/topology changes.
+- Skip the shadow framebuffer clear and draw calls for clean layers.
+- Keep all current culling, depth settings, layer assignment, and shadow-map
+  sampling behavior unchanged.
 
-### 4. Forward pass and light preparation: only after traversal data is shared
+This is the highest-value structural optimization, but must follow the
+profiler and scene-list work so stale shadows cannot be introduced.
 
-- Use the same cached forward renderable list and world matrices in the forward
-  pass; avoid a separate component scan.
-- Cache packed light UBO data in [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/scene.py)
-  and upload only on light/transform changes.
-- Cache camera projection/view/inverse view-projection matrices in
-  [camera.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/camera.py)
-  for the ray, debug, volumetric, and render paths.
+### 4. Cache camera and light data
 
-These are follow-up optimizations for the 0.11-0.34 ms regions and should not
-precede the shadow/deferred work.
+In [camera.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/camera.py):
 
-### 5. Defer low-value input and quad micro-optimizations
+- Cache projection matrices by aspect and projection parameters.
+- Cache inverse view-projection for ray casting and volumetric rendering.
 
-The input path is 0.03-0.05 ms, so binding indexing is explicitly lower
-priority. Implement it only if profiling shows it scales with scene interaction.
-Likewise, sampler/uniform/state caching in screen quads should be considered
-only after measuring the 0.20 ms lighting and sub-0.11 ms volumetric/blur paths.
+In [scene.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/scene/scene.py):
 
-In [manager.py](/home/alex/Documents/CompositionSoftware.worktrees/engine-optimization-cpu-reduction/compsoft/input/manager.py):
+- Reuse one packed `LightData.BLOCK_DTYPE` buffer.
+- Upload it only when light membership, light properties, or relevant actor
+  transforms change.
+- Preserve the current eight-light limit and ordering.
 
-- Store bindings in a dictionary keyed by `(Inputs, TriggerMode)`.
-- Sort each bucket by `chord_weight` only in `add_binding`, not in `handle_input_event` or `update`.
-- In `update`, iterate the precomputed bucket for each active key.
-- Preserve modifier matching, release-time modifier snapshots, consumer priority, and early consumption exactly.
-- Keep `active_keys` as a set; do not introduce per-frame key polling.
+### 5. Defer low-value CPU work
 
-Expected result: no list comprehensions or sorts for every held key and input event.
+- Input binding indexing is correctness-safe but should be done only after the
+  scene work because it can save at most a few hundredths of a millisecond in
+  the current profile.
+- Sampler-uniform setup and redundant texture/state binding reduction should be
+  measured after lighting reaches the top-level bottleneck.
+
+## GPU track: separate follow-up
+
+These changes affect GPU cost or visual quality and should be benchmarked
+separately from CPU changes:
+
+- Evaluate shadow-map resolution and number of shadow-casting lights; shadow
+  rendering is currently the largest pass.
+- Replace repeated fullscreen passes with a combined blur or lower-resolution
+  volumetric buffer if quality permits.
+- Profile the deferred lighting shader's per-pixel light loop and PCF samples.
+- Consider batching/instancing for repeated meshes only after CPU draw-call
+  counts are known.
+
+No GPU-track change should be mixed into the CPU benchmark without recording
+the quality/resolution trade-off.
 
 ## Validation
 
-- Capture a baseline and post-change profile on the same representative scene.
-- Compare average and percentile CPU frame time, plus counts of matrix inversions, `to_dtype` conversions, binding sorts, actor visits, and draw calls.
-- Verify static scenes stop rebuilding transforms/lights while moving actors and camera still update correctly.
-- Run existing `ruff`, `ty`, and any repository test commands from the Makefile/pyproject.
-
-## Out of scope
-
-Shader instruction count, texture formats, shadow resolution, blur quality, batching/instancing, GPU occlusion culling, and converting the engine to C++ are separate projects. They may improve total frame time but are not part of this CPU-overhead pass.
+- Benchmark the same scene and camera path before and after each CPU phase.
+- Require improvement in frame p95 or a measured hotspot, not only a lower
+  instantaneous minimum.
+- Verify static scenes do zero shadow redraws after the first frame, while
+  moving a light or caster redraws exactly the affected layers.
+- Verify camera movement invalidates camera caches but does not invalidate
+  static shadow maps.
+- Run existing repository checks (`ruff`, `ty`, and available tests); do not
+  add new tooling solely for profiling.
