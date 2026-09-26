@@ -267,8 +267,8 @@ class Engine:
             if now - last_print > 0.75:
                 self.profiler.summary()
                 self._last_print_time = now
-
-            self.window.swap_buffers()
+            with self.profiler.time("Swap"):
+                self.window.swap_buffers()
 
     def exit(self):
         self.fb.destroy()
