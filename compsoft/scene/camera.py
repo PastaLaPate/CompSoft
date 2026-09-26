@@ -13,7 +13,10 @@ class Camera:
         self._near_clipping_plane = 0.01
         self._far_clipping_plane = 300.0
 
-        self._cached_view_matrix = None
+        self._cached_view_matrix: mat4x4 | None = None
+        self._cached_proj_matrix: (
+            tuple[tuple[float, int, float, float], mat4x4] | None
+        ) = None
         self._dirty_matrix = True
 
     @classmethod
@@ -136,12 +139,24 @@ class Camera:
         return self._cached_view_matrix
 
     def get_projection_matrix(self, aspect_ratio: float) -> glm.mat4x4:
-        return glm.perspective(
-            glm.radians(self.fov),
-            aspect_ratio,  # Aspect Ratio
-            self.near_clipping_plane,  # Near clipping plane. Keep as big as possible, or you'll get precision issues.
-            self.far_clipping_plane,  # Far clipping plane. Keep as little as possible
+
+        if self._cached_proj_matrix and self._cached_proj_matrix[0] == (
+            aspect_ratio,
+            self.fov,
+            self.near_clipping_plane,
+            self.far_clipping_plane,
+        ):
+            return self._cached_proj_matrix[1]
+        self._cached_proj_matrix = (
+            (aspect_ratio, self.fov, self.near_clipping_plane, self.far_clipping_plane),
+            glm.perspective(
+                glm.radians(self.fov),
+                aspect_ratio,  # Aspect Ratio
+                self.near_clipping_plane,  # Near clipping plane. Keep as big as possible, or you'll get precision issues.
+                self.far_clipping_plane,  # Far clipping plane. Keep as little as possible
+            ),
         )
+        return self._cached_proj_matrix[1]
 
     def get_frustum_corners_world_space(self, aspect: float) -> list[vec4]:
         inv = cast(

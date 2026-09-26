@@ -68,7 +68,7 @@ class SimpleMeshComponent(RenderableComponent):
             dynamic (bool, optional): Will the triangles or colors be updated? Defaults to False.
         """
         super().__init__()
-        self._triangles = triangles
+        self._triangles: list[tuple[vec3, vec3, vec3]] = triangles
         self._colors: list[vec3] = [  # Default white vertex color
             vec3(1, 1, 1) for _ in range(len(triangles) * 3)
         ]
