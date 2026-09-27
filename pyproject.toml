@@ -29,8 +29,16 @@ dev = [
 requires = ["pdm-backend>=2.4.9"]
 build-backend = "pdm.backend"
 
-[tool.setuptools]
-py-modules = []
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "uv"
+update_changelog_on_bump = true
+major_version_zero = true
+
+[tool.pdm.build]
+includes = ["compsoft"]
 
 [tool.uv]
 link-mode = "copy"
@@ -40,12 +48,4 @@ default-groups = []
 members = ["."]
 
 [tool.uv.sources]
-lightshow = { workspace = true }
-
-[tool.commitizen]
-name = "cz_conventional_commits"
-tag_format = "$version"
-version_scheme = "pep440"
-version_provider = "uv"
-update_changelog_on_bump = true
-major_version_zero = true
+compsoft = { workspace = true }
