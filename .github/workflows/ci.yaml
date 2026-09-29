@@ -23,13 +23,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-extras
 
-      - name: ruff format check
+      - name: Check format
         run: uvx ruff format --check .
 
-      - name: ruff lint
+      - name: Ruff lint
         run: uvx ruff check .
 
-      - name: ty check
+      - name: Check types
         run: uvx ty check .
 
       - name: Build wheel package
