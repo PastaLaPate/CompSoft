@@ -11,7 +11,7 @@ class ShaderPair(NamedTuple):
 class ResourceManager:
     def __init__(self, root_dir: Path | None = None) -> None:
         if root_dir is None:
-            self.assets_dir = Path(str(files("compsoft") / "assets"))
+            self.root_dir = Path(str(files("compsoft")))
         else:
             self.root_dir = Path(root_dir).resolve()
 
