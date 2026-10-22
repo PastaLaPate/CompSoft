@@ -716,7 +716,7 @@ class SimpleMeshComponent(RenderableComponent):
         if p_world_model_matrix is None:
             return
 
-        final_mvp = cast(mat4x4, light_view_projection * world_model_matrix)
+        final_mvp = cast(mat4x4, light_view_projection * p_world_model_matrix)
         self._depth_material.use(final_mvp)
         self._draw_geometry()
 

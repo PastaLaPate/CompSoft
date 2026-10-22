@@ -202,7 +202,7 @@ def main():
         )
         light_comp2.direction = normalize(-light_actor2.position)
 
-        mh_head.rotation = vec3(smooth_noise(t / 100, 4.0) * 180, 0, 0)
+        mh_head.rotation = vec3(smooth_noise(t / 1000, 4.0) * 180, 0, 0)
 
     engine._add_prerender_listener(tick)
 
