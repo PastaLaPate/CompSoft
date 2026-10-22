@@ -1,5 +1,6 @@
-from pyglm.glm import vec3
+from pyglm.glm import mat4x4, vec3
 
+from compsoft.graphics.infrastructure.render_pass import RenderPass
 from compsoft.scene.actor import Actor
 from compsoft.scene.components.cone import SimpleConeComponent
 from compsoft.scene.components.cylinder import SimpleCylinderComponent
@@ -102,3 +103,12 @@ class TranslationGizmo(Actor):
             Axis.Z: [self.z_axis_cylinder, self.z_axis_arrow_head],
         }
         return mapping[axis]
+
+    def render(
+        self,
+        aspect_ratio: float,
+        render_pass: RenderPass,
+        light_view_projection: mat4x4 | None = None,
+    ):
+        if self.selected_actor:
+            super().render(aspect_ratio, render_pass, light_view_projection)
