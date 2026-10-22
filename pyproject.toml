@@ -40,6 +40,9 @@ major_version_zero = true
 [tool.pdm.build]
 includes = ["compsoft"]
 
+[tool.setuptools.package-data]
+compsoft = ["assets/**/*"]
+
 [tool.uv]
 link-mode = "copy"
 default-groups = []

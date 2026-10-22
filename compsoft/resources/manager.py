@@ -1,3 +1,4 @@
+from importlib.resources import files
 from pathlib import Path
 from typing import NamedTuple
 
@@ -10,7 +11,7 @@ class ShaderPair(NamedTuple):
 class ResourceManager:
     def __init__(self, root_dir: Path | None = None) -> None:
         if root_dir is None:
-            self.root_dir = Path(__file__).resolve().parent.parent.parent
+            self.assets_dir = Path(str(files("compsoft") / "assets"))
         else:
             self.root_dir = Path(root_dir).resolve()
 
