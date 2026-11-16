@@ -29,6 +29,7 @@ from pyglm.glm import mat4, vec3
 from rich.live import Live
 from rich.table import Table
 
+from compsoft.core.gpu_timer import GpuTimerQueries
 from compsoft.graphics.shader import Shader
 from compsoft.resources.manager import resources
 
@@ -179,6 +180,29 @@ class _Timer:
     def __exit__(self, *exc):
         elapsed = (time.perf_counter() - self.start) * 1000
         self.profiler.measurements[self.name].append(elapsed)
+        self.profiler.sources.setdefault(self.name, "CPU")
+        return False
+
+
+class _GpuPass:
+    """Context manager that brackets a pass with a GL timer query."""
+
+    __slots__ = ("name", "profiler", "query")
+
+    def __init__(self, profiler: "Profiler", name: str):
+        self.profiler = profiler
+        self.name = name
+        self.query = 0
+
+    def __enter__(self):
+        timer = self.profiler._gpu_timer
+        self.query = timer.acquire(self.name) if timer is not None else 0
+        return self
+
+    def __exit__(self, *exc):
+        timer = self.profiler._gpu_timer
+        if timer is not None and self.query:
+            timer.release(self.name, self.query)
         return False
 
 
@@ -187,8 +211,19 @@ class Profiler:
         self.measurements: defaultdict[str, deque[float]] = defaultdict(
             lambda: deque(maxlen=window_size)
         )
+        self.sources: dict[str, str] = {}
         self._timers: dict[str, _Timer] = {}
+        self._gpu_passes: dict[str, _GpuPass] = {}
+        self._gpu_timer: GpuTimerQueries | None = None
+        self._gpu_probed = False
         self._live: Live | None = None
+
+    def _ensure_gpu_timer(self) -> None:
+        if self._gpu_probed:
+            return
+        self._gpu_probed = True
+        timer = GpuTimerQueries()
+        self._gpu_timer = timer if timer.supported else None
 
     def _ensure_live(self):
         if self._live is None:
@@ -204,14 +239,45 @@ class Profiler:
             self._timers[name] = timer
         return timer
 
+    def pass_timer(self, name: str, enabled: bool = True):
+        """Time a render pass on the GPU when timer queries are available.
+
+        Falls back to CPU wall-clock timing on drivers without timer queries,
+        so the table always has a number and its SRC column says which one it is.
+        """
+        if not enabled:
+            return nullcontext()
+        self._ensure_gpu_timer()
+        if self._gpu_timer is None:
+            return self.time(name)
+        self.sources[name.upper()] = "GPU"
+        timer = self._gpu_passes.get(name)
+        if timer is None:
+            timer = _GpuPass(self, name)
+            self._gpu_passes[name] = timer
+        return timer
+
+    def harvest_gpu(self) -> None:
+        """Call once per frame, outside any timed pass."""
+        if self._gpu_timer is not None:
+            self._gpu_timer.harvest(self._record_gpu)
+
+    def _record_gpu(self, name: str, elapsed_ms: float) -> None:
+        key = name.upper()
+        self.measurements[key].append(elapsed_ms)
+        self.sources[key] = "GPU"
+
     def record(self, name: str, value: float, enabled: bool = True):
         if not enabled:
             return
-        self.measurements[name.upper()].append(value)
+        key = name.upper()
+        self.measurements[key].append(value)
+        self.sources.setdefault(key, "CPU")
 
     def _build_table(self) -> Table:
         table = Table()
         table.add_column("NAME")
+        table.add_column("SRC")
         table.add_column("MIN")
         table.add_column("AVG")
         table.add_column("P95")
@@ -223,6 +289,7 @@ class Profiler:
             p95 = statistics.quantiles(t, n=20)[18] if len(t) > 1 else t[0]
             table.add_row(
                 name,
+                self.sources.get(name, "CPU"),
                 f"{min(t):.2f}",
                 f"{statistics.mean(t):.2f}",
                 f"{p95:.2f}",
@@ -237,3 +304,6 @@ class Profiler:
     def stop(self):
         if self._live is not None:
             self._live.stop()
+        if self._gpu_timer is not None:
+            self._gpu_timer.destroy()
+            self._gpu_timer = None

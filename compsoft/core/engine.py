@@ -184,12 +184,12 @@ class Engine:
                         shadows_tex=self.shadows_fb.shadow_array_tex,
                     )
             else:
-                with self.profiler.time("Deferred", enabled=debug_complex):
+                with self.profiler.pass_timer("Deferred", enabled=debug_complex):
                     with self.fb:
                         self.scene.render(self.window.aspect_ratio, RenderPass.DEFERRED)
                     self.scene.upload_light_ubo(self.scene.get_lights())
 
-                with self.profiler.time("Shadow", enabled=debug_complex):
+                with self.profiler.pass_timer("Shadow", enabled=debug_complex):
                     glCullFace(GL_FRONT)
                     light_space_matrices = {}
                     for active_light in self.scene.active_lights:
@@ -197,7 +197,7 @@ class Engine:
                         matrix = self.shadows_fb.render_light(active_light, self.scene)
                         light_space_matrices[index] = matrix
 
-                with self.profiler.time("Lighting", enabled=debug_complex):
+                with self.profiler.pass_timer("Lighting", enabled=debug_complex):
                     glCullFace(GL_BACK)
                     with self.post_fb:
                         self.sq.bind_shader(light_space_matrices)
@@ -214,12 +214,12 @@ class Engine:
                     self.post_sq.bind_shader()
                     self.post_sq.render(*self.window.size, self.post_fb.color_tex)
 
-                with self.profiler.time("Forward", enabled=debug_complex):
+                with self.profiler.pass_timer("Forward", enabled=debug_complex):
                     self.fb.unbind()  # Get the scene's depth buffer back
                     self.scene.render(self.window.aspect_ratio, RenderPass.FORWARD)
 
                 with (
-                    self.profiler.time("Vol Lightning", enabled=debug_complex),
+                    self.profiler.pass_timer("Vol Lightning", enabled=debug_complex),
                     self.vol_fb,
                 ):
                     self.vol_sq.bind_shader(light_space_matrices)
@@ -239,7 +239,7 @@ class Engine:
                         ),
                     )
 
-                with self.profiler.time("Blur", enabled=debug_complex):
+                with self.profiler.pass_timer("Blur", enabled=debug_complex):
                     with self.blur_fb:
                         self.blur_sq.bind_shader()
                         self.blur_sq.render(
@@ -266,11 +266,13 @@ class Engine:
             now = time.time()
             if now - last_print > 0.75:
                 self.profiler.summary()
-                self._last_print_time = now
+                last_print = now
             with self.profiler.time("Swap"):
                 self.window.swap_buffers()
+            self.profiler.harvest_gpu()
 
     def exit(self):
+        self.profiler.stop()
         self.fb.destroy()
         self.sq.destroy()
 
