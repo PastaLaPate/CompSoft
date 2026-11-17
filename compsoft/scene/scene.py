@@ -231,6 +231,7 @@ class Scene:
     def unregister_light(self, light: LightComponent):
         if light in self.active_lights:
             self.active_lights.remove(light)
+        self.shadow_fb.release_light(light)
 
         self.upload_light_ubo(self.get_lights())
 

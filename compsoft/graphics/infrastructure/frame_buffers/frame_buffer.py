@@ -53,6 +53,16 @@ class ColorAttachment:
 
 
 class FrameBuffer(ABC):
+    """A framebuffer whose color attachments are textures.
+
+    `needs_depth` controls whether a depth renderbuffer is allocated. Screen-space
+    passes (lighting composite, blur, volumetrics) draw exactly one quad and never
+    depth-test, so they must opt out: a depth attachment costs
+    width*height*4 bytes of VRAM and forces the depth blit in `unbind()`.
+    """
+
+    needs_depth: bool = True
+
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
@@ -78,7 +88,8 @@ class FrameBuffer(ABC):
         glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
 
         self._build_color_attachments()
-        self._build_depth_attachment()
+        if self.needs_depth:
+            self._build_depth_attachment()
 
         attachments = [attachment.attachment for attachment in self.color_attachments()]
         glDrawBuffers(len(attachments), attachments)
@@ -153,10 +164,11 @@ class FrameBuffer(ABC):
                 None,
             )
 
-        glBindRenderbuffer(GL_RENDERBUFFER, self.drb)
-        glRenderbufferStorage(
-            GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, self.width, self.height
-        )
+        if self.needs_depth:
+            glBindRenderbuffer(GL_RENDERBUFFER, self.drb)
+            glRenderbufferStorage(
+                GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, self.width, self.height
+            )
 
     def __enter__(self):
         self.bind()
@@ -173,27 +185,30 @@ class FrameBuffer(ABC):
 
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT)
-        glClear(GL_DEPTH_BUFFER_BIT)
+        if self.needs_depth:
+            glClear(GL_DEPTH_BUFFER_BIT)
 
         glDisable(GL_BLEND)
 
     def unbind(self) -> None:
-        # Keep depth buffer
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, self.fbo)
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)
+        # Keep depth buffer: the forward pass renders into the default framebuffer
+        # and needs the depth the deferred pass wrote.
+        if self.needs_depth:
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, self.fbo)
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)
 
-        glBlitFramebuffer(
-            0,
-            0,
-            self.width,
-            self.height,
-            0,
-            0,
-            self.width,
-            self.height,
-            GL_DEPTH_BUFFER_BIT,
-            GL_NEAREST,
-        )
+            glBlitFramebuffer(
+                0,
+                0,
+                self.width,
+                self.height,
+                0,
+                0,
+                self.width,
+                self.height,
+                GL_DEPTH_BUFFER_BIT,
+                GL_NEAREST,
+            )
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
 

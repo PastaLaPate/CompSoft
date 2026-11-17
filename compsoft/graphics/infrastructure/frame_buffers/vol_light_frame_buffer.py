@@ -12,6 +12,9 @@ from compsoft.graphics.infrastructure.frame_buffers.frame_buffer import (
 
 
 class VolumetricLightFrameBuffer(FrameBuffer):
+    # Only ever receives a full-screen quad: no depth attachment, no depth blit.
+    needs_depth = False
+
     def color_attachments(self):
         return [
             ColorAttachment(GL_COLOR_ATTACHMENT0, GL_RGBA16F, GL_RGBA, GL_UNSIGNED_BYTE)

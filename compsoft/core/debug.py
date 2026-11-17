@@ -26,6 +26,7 @@ from OpenGL.GL import (
     glVertexAttribPointer,
 )
 from pyglm.glm import mat4, vec3
+from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
@@ -300,6 +301,10 @@ class Profiler:
         self._ensure_live()
         if self._live is not None:
             self._live.update(self._build_table())
+
+    def dump(self) -> None:
+        """Print the current table to stdout once (used by benchmarks)."""
+        Console().print(self._build_table())
 
     def stop(self):
         if self._live is not None:

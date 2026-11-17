@@ -20,6 +20,8 @@ from OpenGL.GL import (
     glBindFramebuffer,
     glBindTexture,
     glClear,
+    glDeleteFramebuffers,
+    glDeleteTextures,
     glDrawBuffer,
     glEnable,
     glFramebufferTextureLayer,
@@ -43,21 +45,57 @@ from compsoft.scene.scene import Scene
 MAX_SHADOW_LIGHTS = 8
 CASCADES_N = 4
 
+# A depth layer costs width * height * 4 bytes. Past roughly half a gigabyte the
+# array stops staying resident on a 6GB card that is also driving the desktop, and
+# every depth write in the shadow pass goes over PCIe: 420MB/frame at ~7GB/s is
+# ~60ms instead of ~0.6ms. Warn instead of silently collapsing to 2 fps.
+SHADOW_VRAM_WARN_BYTES = 512 * 1024 * 1024
+
 
 class ShadowFrameBuffer:
-    def __init__(self, resolution: float = 1):
+    """Depth-only 2D texture array with one shadow map per light.
+
+    Layers are allocated on demand: the array starts with a single layer and grows
+    by doubling when another shadow-casting light registers. Sizing it eagerly for
+    MAX_SHADOW_LIGHTS wastes most of the VRAM for scenes that use two or three
+    lights - at 5120x5120 the unused layers alone are half a gigabyte.
+    """
+
+    def __init__(self, resolution: float = 1, max_layers: int = MAX_SHADOW_LIGHTS):
         self.width = int(1024 * resolution)
         self.height = int(1024 * resolution)
-        self.max_layer = MAX_SHADOW_LIGHTS
+        self.max_layer = max_layers
 
-        self.matrices_cache: dict[LightData, mat4x4] = {}
+        # Bound to the light component, not to its current data: moving lights used
+        # to insert a fresh entry in the value-keyed dict every frame.
+        self.matrices_cache: dict[LightComponent, tuple[LightData, mat4x4]] = {}
 
         self.light_layers: dict[
             LightComponent, int
         ] = {}  # light: texture2d_array layer
-        self._available_layers: deque[int] = deque(
-            range(MAX_SHADOW_LIGHTS)
-        )  # queue of available layers
+        self._available_layers: deque[int] = deque()  # queue of available layers
+
+        self.layer_capacity = 0
+        self.shadow_array_tex = 0
+        self._allocate_layers(1)
+
+        # Build a new frame buffer
+        self.fbo = glGenFramebuffers(1)
+        glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
+        glDrawBuffer(GL_NONE)
+        glReadBuffer(GL_NONE)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
+    @property
+    def vram_bytes(self) -> int:
+        # 4 bytes per depth sample (GL_DEPTH_COMPONENT is uploaded as float)
+        return self.width * self.height * 4 * self.layer_capacity
+
+    def _allocate_layers(self, layers: int) -> None:
+        layers = max(1, min(layers, self.max_layer))
+
+        if self.shadow_array_tex:
+            glDeleteTextures(1, [self.shadow_array_tex])
 
         self.shadow_array_tex = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D_ARRAY, self.shadow_array_tex)
@@ -67,7 +105,7 @@ class ShadowFrameBuffer:
             GL_DEPTH_COMPONENT,  # GPU Format
             self.width,
             self.height,
-            self.max_layer,  # depth = layer count
+            layers,  # depth = layer count
             0,  # legacy
             GL_DEPTH_COMPONENT,  # cpu format
             GL_FLOAT,  # type
@@ -79,20 +117,32 @@ class ShadowFrameBuffer:
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 
-        # Build a new frame buffer
-        self.fbo = glGenFramebuffers(1)
-        glBindFramebuffer(GL_FRAMEBUFFER, self.fbo)
-        glDrawBuffer(GL_NONE)
-        glReadBuffer(GL_NONE)
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        # Existing layer assignments keep their index; their contents are dropped but
+        # every shadow map is re-rendered before it is sampled.
+        for layer in range(self.layer_capacity, layers):
+            self._available_layers.append(layer)
+        self.layer_capacity = layers
+
+        if self.vram_bytes > SHADOW_VRAM_WARN_BYTES:
+            mib = self.vram_bytes / (1024 * 1024)
+            print(
+                f"WARNING: shadow map array is {mib:.0f} MiB "
+                f"({self.width}x{self.height} x {layers} layers). Above ~512 MiB it "
+                "can stop being resident in VRAM and the shadow pass falls back to "
+                "PCIe traffic. Lower ShadowFrameBuffer(resolution=...) or use fewer "
+                "shadow-casting lights."
+            )
 
     def get_light_layer(self, light: LightComponent, cascade: int = 0) -> int:
-        if light not in self.light_layers:
-            if len(self._available_layers) == 0:
-                raise RuntimeError("No more shadow texture available")
+        layer = self.light_layers.get(light)
+        if layer is None:
+            if not self._available_layers:
+                if self.layer_capacity >= self.max_layer:
+                    raise RuntimeError("No more shadow texture available")
+                self._allocate_layers(self.layer_capacity * 2)
             layer = self._available_layers.popleft()
             self.light_layers[light] = layer
-        return self.light_layers[light]  # * CASCADES_N + cascade
+        return layer  # * CASCADES_N + cascade
 
     def _compute_vp_matrix(self, light_data: LightData, near=0.1, far=50.0) -> mat4x4:
         if light_data.type == LightType.DIRECTIONAL:
@@ -148,12 +198,28 @@ class ShadowFrameBuffer:
         glClear(GL_DEPTH_BUFFER_BIT)
 
         light_data = light.get_data()
-        if not light_data in self.matrices_cache:
-            self.matrices_cache[light_data] = self._compute_vp_matrix(
-                light_data, 0.1, 50.0
-            )
+        cached = self.matrices_cache.get(light)
+        if cached is None or cached[0] != light_data:
+            cached = (light_data, self._compute_vp_matrix(light_data, 0.1, 50.0))
+            self.matrices_cache[light] = cached
+        matrix: mat4x4 = cached[1]
 
-        scene.render_shadow_map(self.matrices_cache[light_data])
+        scene.render_shadow_map(matrix)
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        return self.matrices_cache[light_data]
+        return matrix
+
+    def release_light(self, light: LightComponent) -> None:
+        """Gives the light's layer back so a later light can reuse it."""
+        layer = self.light_layers.pop(light, None)
+        if layer is not None:
+            self._available_layers.append(layer)
+        self.matrices_cache.pop(light, None)
+
+    def destroy(self) -> None:
+        if self.fbo:
+            glDeleteFramebuffers(1, [self.fbo])
+            self.fbo = 0
+        if self.shadow_array_tex:
+            glDeleteTextures(1, [self.shadow_array_tex])
+            self.shadow_array_tex = 0

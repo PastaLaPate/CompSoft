@@ -142,13 +142,23 @@ class Engine:
     def _add_prerender_listener(self, listener: Callable[[float, float], None]):
         self.prerender_listeners.append(listener)
 
-    def start(self) -> None:
+    def start(self, max_frames: int | None = None) -> None:
+        """Runs the main loop.
+
+        Args:
+            max_frames: Stop after this many frames (used by benchmarks). None runs
+                until the window is closed.
+        """
         t = 0
+        frame = 0
         last_print = time.time()
         while (
             not self.window.key_pressed(glfw.KEY_ESCAPE)
             and not self.window.should_close()
         ):
+            if max_frames is not None and frame >= max_frames:
+                break
+            frame += 1
             self.window.clear()
 
             debug_basic = self.scene.debug.has_flag(DebugFlags.DEBUG_FRAME_TIME)
@@ -271,9 +281,17 @@ class Engine:
                 self.window.swap_buffers()
             self.profiler.harvest_gpu()
 
+        if max_frames is not None:
+            # Benchmarks read the numbers from stdout, not the live table.
+            self.profiler.dump()
+
     def exit(self):
         self.profiler.stop()
         self.fb.destroy()
+        self.vol_fb.destroy()
+        self.blur_fb.destroy()
+        self.post_fb.destroy()
+        self.shadows_fb.destroy()
         self.sq.destroy()
 
         self.window.exit()

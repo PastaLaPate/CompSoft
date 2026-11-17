@@ -41,6 +41,10 @@ class Window:
         self.window = window
         glfw.make_context_current(window)
 
+        # Start the frame clock now: leaving last_time at 0 makes the first frame
+        # report dt == time since GLFW init (~1.5s), which swamps the averages.
+        self.last_time = float(glfw.get_time())
+
         glfw.set_input_mode(
             window, glfw.STICKY_KEYS, 0x1
         )  # == GL_TRUE but avoids putting opengl code here.

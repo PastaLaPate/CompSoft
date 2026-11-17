@@ -9,6 +9,16 @@ uv run compsoft
 uv run python -m compsoft
 ```
 
+### Benchmark
+```bash
+# Fixed number of frames, prints the profiler table once to stdout
+uv run python tools/bench.py
+
+# Smaller target / shadow map, and a frozen scene for before-after pixel diffs
+BENCH_W=1280 BENCH_H=720 BENCH_SHADOW_RES=2 uv run python tools/bench.py
+BENCH_FREEZE=1 BENCH_SHOT=/tmp/frame.png uv run python tools/bench.py
+```
+
 ### Development workflow
 ```bash
 # Install pre-commit hooks
