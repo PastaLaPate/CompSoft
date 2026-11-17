@@ -1,8 +1,16 @@
 # ROADMAP — Rendering performance
 
-Ordered by importance. Each item states the measured problem, the change, what it
-buys, and how to verify it. Numbers come from `tools/bench.py` on the demo scene at
-1920×1080 (GTX 1660 SUPER, 6 GB) unless marked *(estimate)*.
+Two parts:
+
+- **Part 1 — Squeezing the current renderer.** Items in importance order, all about the
+  present 1 directional + 3 spot setup. Items 1–12 are numbered by importance.
+- **Part 2 — Scaling to many lights.** What it takes to run hundreds to thousands of
+  point/spot/directional lights cheaply, and why the 8-light UBO is the last of several
+  walls rather than the first. Phases are numbered **L1–L8** in importance order.
+
+Each item states the measured problem, the change, what it buys, and how to verify it.
+Numbers come from `tools/bench.py` on the demo scene at 1920×1080 (GTX 1660 SUPER,
+6 GB) unless marked *(estimate)*.
 
 Current state after the first pass: **5.68 ms/frame (176 fps) at 1080p with the
 shadow map still at 5120²**, from 74.7 ms/frame (≈17 fps). GPU work is now ~4.4 ms
@@ -18,6 +26,8 @@ Verification rules that apply to every item:
 - Run `uvx ruff check . && uvx ruff format --check . && uvx ty check .`.
 
 ---
+
+# Part 1 — Squeezing the current renderer
 
 ## Done (phase 0)
 
@@ -215,19 +225,10 @@ on the fill-heavy `DEFERRED` pass and on the passes that read it.
 
 ## 9. Tiled light culling
 
-**Problem.** Both the lighting and volumetric shaders loop over all
-`uActiveLightCount` lights for every pixel. Capped at 8 by the UBO layout, so this is
-about scaling rather than today's 2 ms.
-
-**Change.** Compute a 16×16 tile → light index list per frame (cheap CPU pass over
-light bounding spheres projected to screen, or a compute/`GL_ARB_compute_shader` pass
-later), upload as an SSBO, and loop only over the tile's lights. Also lets you drop
-the `uLights[8]` cap.
-
-**Buys.** Makes 20+ lights viable; cuts both the lit and volumetric passes
-proportionally to how many lights each tile actually needs.
-
-**Risk.** Moderate. Do it when the light count becomes a design constraint.
+**Superseded by Part 2, L2** (clustered light assignment), which is the same idea done
+properly in 3D and with the culling shared by the lighting and volumetric passes. Kept
+here only as a note: do not implement 2D-only tiles first, the depth-range
+over-inclusion makes it wasted work.
 
 ---
 
@@ -283,12 +284,292 @@ push the app over the cliff.
 
 ---
 
-## Not worth doing (tested)
+# Part 2 — Scaling to many lights (point, spot, directional)
+
+Target: hundreds to thousands of lights on this GPU, with roughly constant cost per
+frame. The `uLights[8]` UBO is the *visible* cap, but it is the cheapest wall to
+remove and not the first one that hurts. In the order they actually hit:
+
+| Wall | Where | Gives out at |
+|---|---|---|
+| Per-pixel loop pays full price for every light | `lit/fragment.glsl`, `vol_light/fragment.glsl` | ~16–32 lights |
+| One shadow layer per light (5120² × 4 B = **105 MiB each**) | `ShadowFrameBuffer.get_light_layer` | 4–5 shadowed lights before the VRAM cliff |
+| Volumetric marching: 28 steps × every spot light | `vol_light/fragment.glsl` | 2–3 spots (already 2.08 ms) |
+| `uLights[8]` / `uActiveLightCount` | `LightData.BLOCK_DTYPE`, both shaders | 8 — extra lights are silently dropped by `min(len(lights), 8)` |
+| `uLightSpaceMatrices[8]` + one `set_uniform_matrix` per light per frame | `screen_quad.py` | 8 |
+| `upload_light_ubo()`: `np.zeros` + per-light record fill, twice per frame | `scene.py` | ~200–1000 lights (ms of Python) |
+
+So: lifting the array size alone buys maybe 16–32 lights before the volumetric pass
+collapses. The order below is designed so each phase removes the wall the previous
+one exposes.
+
+Order of importance: **L1** (unblock data path) → **L2** (cluster culling: this is the
+real enabler) → **L3** (shadow budget) → **L4** (froxel volumetrics) → **L5** (point
+lights, cheap once L2 exists) → **L6** (baked lighting for thousands) → **L7**
+(housekeeping, needed before any of the scaling numbers are honest) → **L8**
+(validation).
+
+---
+
+## L1. Get light data out of the UBO and kill the 8-light cap
+
+**Problem.** `LightData.LIGHT_DTYPE` is 80 B per light in a `std140` block sized for 8,
+with the count passed as a UBO member. Two shaders declare `LightData uLights[8]`, and
+`LitScreenQuad.upload_light_space_matrices()` does one `glUniformMatrix4fv` per light
+per frame.
+
+**Change.**
+1. Bump the context to 4.3 core (or 4.6) in `window.py` — the 1660 SUPER is a 4.6 part
+   and PyOpenGL exposes everything. This unlocks SSBOs, compute (L2 GPU path), image
+   store (L4) and `glCopyImageSubData` (shadow caching). If 3.3 must stay for
+   compatibility, use a **texture buffer object** (`samplerBuffer` + `texelFetch`)
+   instead — it is core in 3.1 and holds 65 536 lights.
+2. Store lights in a plain SSBO/TBO instead of the UBO, with the count in the same
+   buffer (or a 1-int uniform — cheap either way).
+3. Pack the struct, 80 B → 32 B. One possible layout:
+
+```
+struct GpuLight {        // 32 bytes
+  vec3  position;        // 12   world space
+  float radius;          //  4   influence radius (culling + attenuation cutoff)
+  vec3  color;           // 12   HDR linear
+  float intensity;       //  4
+  uvec2 packedDir;       //  8   octahedral, 2 x int16
+  uint  typeShadow;      //  4   type:2b | shadow tile:10b | flags
+  uint  cutoffs;         //  4   inner/outer as 2 x uint16 (normalised)
+};
+```
+
+1000 lights = 32 KB. Upload is one `glBufferSubData`.
+4. Move `uLightSpaceMatrices` into a buffer as well (or into the per-light struct as
+   four `mat4` in a parallel array indexed by shadow tile) so per-light uniform uploads
+   disappear entirely.
+5. Shader loop becomes `GpuLight l = lightAt(i);` with `lightAt` doing a
+   `texelFetch`/`lightData[i]` — no per-light uniform state.
+
+**Buys.** Removes the hard cap and the per-light CPU submission cost. Prerequisite for
+everything else.
+
+**Risk.** Low. Straight port of the existing math; keep the current lighting result
+bit-comparable before moving on (freeze-frame diff).
+
+---
+
+## L2. Clustered light assignment (Forward+) — the actual mechanism
+
+**Problem.** `lit/fragment.glsl` loops over all active lights for every pixel. Cost is
+`pixels × lightCount`, so "many lights" is impossible regardless of how cheap each
+light is.
+
+**Change.** Build a 3D cluster grid over the view frustum each frame, and store the list
+of lights intersecting each cluster. The deferred lighting shader then loops only over
+its own cluster's lights.
+
+- Grid: **16×16 tiles × 24 depth slices**, with exponential (log) z slicing so near
+  clusters stay thin. 1080p → 120×68 pixels per tile. Note this is 3D, not 2D: with
+  near 0.1 / far 50 the 2D tile version would pull distant lights into near tiles.
+- Culling test: light bounding sphere (radius from L1) vs cluster AABB. The directional
+  light is stored once in a "global lights" list instead of in clusters.
+- Two implementations, in this order:
+  1. **CPU (works on GL 3.3 today).** Vectorised numpy: project each light's sphere to a
+     tile range + z-slice range, then scatter into per-cluster lists. 3456 clusters ×
+     500 lights is a few numpy passes, *(estimate)* 1–3 ms — acceptable while the GPU
+     path doesn't exist, and it is measurable immediately.
+  2. **GPU compute (after L1's context bump).** Per-cluster dispatch: test lights
+     against the cluster AABB, `atomicAdd` into a count buffer, second pass writes
+     indices into an SSBO at the reserved offsets. *(estimate)* <0.2 ms for 1000 lights.
+     This is the version to land long-term; it also frees the CPU for shadow policy.
+- Upload cluster offsets/counts and the index list as one buffer; the shader computes
+  its cluster index from `gl_FragCoord` and view-space depth (no extra pass needed).
+
+**Buys.** Per-pixel cost becomes proportional to *overlapping* lights (typically 2–6 in
+a dense scene) instead of total lights. This is what makes hundreds of lights cheap.
+The same cluster lists are reused by the volumetric pass in L4 — one culling structure,
+two consumers.
+
+**Risk.** Moderate. Tune: tile size (16×16 vs 32×32), z-slice count, and a max-lights-
+per-cluster overflow guard (drop the least important light, and log it) so a pathological
+cluster can't blow up the fragment loop.
+
+---
+
+## L3. Make shadows a budgeted resource, not a per-light allocation
+
+**Problem.** `get_light_layer()` hands every shadow-casting light a full-size layer.
+At 5120² that is 105 MiB per light; four lights already sit at 419 MiB, and the VRAM
+cliff is around 600–700 MiB. Many shadowed lights is therefore impossible by
+construction, no matter how the light list is stored.
+
+**Change.**
+1. Shadow **atlas** with per-light tiles (Part 1, item 6), total VRAM fixed by design —
+   e.g. 4096² = 67 MiB for the whole renderer.
+2. A **budget policy** in `Scene`/`ShadowFrameBuffer`: at most *K* shadowed lights
+   (start with 8–16). Select per frame by importance = screen-space light size ×
+   intensity × a `shadow_priority` field; the sun/directional light is always in. Give
+   tiles **hysteresis** (keep the same tile across frames unless the ranking changes by
+   a margin) so shadows don't pop or thrash.
+3. Explicit `casts_shadows: bool` on `LightComponent` instead of "every light gets a
+   layer". Lights that lose a tile this frame are simply unshadowed.
+4. Static lights keep their tile content (Part 1, item 7) — a 16-tile atlas then serves
+   16 static lights for free plus a few dynamic ones.
+5. Cache the shadow matrix per light anyway (already done), and index the atlas per
+   light with the tile id packed into `GpuLight.typeShadow` (L1), so the shader needs no
+   per-light uniform.
+
+**Buys.** Hundreds of lights with a **constant, known** shadow VRAM cost and a flat
+per-frame shadow cost. This is the phase that makes the light count irrelevant to
+memory.
+
+**Risk.** Moderate: tile packing, tile-edge insets, and hysteresis tuning. Do it after
+L1/L2 — the packing depends on per-light data being in a buffer.
+
+---
+
+## L4. Froxel volumetrics instead of per-pixel marching
+
+**Problem.** `vol_light/fragment.glsl` marches `NUM_STEPS = 28` per *spot light* per
+pixel: at 4 lights that is up to 84 shadow fetches/px, and it is already 2.08 ms avg /
+3.31 ms p95. With 50 spots it is unshippable, and the cone-clip trick (Part 1, item 4)
+only helps with sparse lights.
+
+**Change.** Compute volumetric scattering in a **3D froxel volume** instead:
+1. Volume: 160×90×64 (or the cluster grid) of RGBA16F = 7.4 MB; one 3D texture.
+2. **Injection:** for each froxel, loop over its cluster's lights (reuse L2's lists),
+   evaluate the phase function + shadow visibility, accumulate in-scattering. This is
+   the only per-light term, and it is per *froxel*, not per pixel.
+3. **Blur:** separable 3D blur (or a few 3D Kawase-style passes) to remove the low
+   froxel resolution.
+4. **Composite:** one full-res pass that samples the volume by view depth and adds it to
+   the scene color — replaces the current vol + blur + composite chain.
+
+Implementation routes: compute + `imageStore` on 4.3+ (clean); on 3.3, render one quad
+per z-slice into the 3D texture layer via an FBO per layer, or layered rendering with a
+geometry shader.
+
+**Buys.** Volumetric cost becomes ~independent of light count and of screen resolution:
+*(estimate)* ~1 ms total for 50 spots, vs 2.08 ms today for four. It also decouples
+volumetrics from shadow-map resolution, which is what bit you in phase 0.
+
+**Risk.** Moderate-high (new subsystem). Land Part 1 item 4 first to get an interim win
+without a rewrite.
+
+---
+
+## L5. Point lights
+
+**Problem.** `LightType.POINT` is commented out (`# POINT = 0`) and the class is stubbed
+in `light.py`, so only directional and spot exist.
+
+**Change.** Small once L1/L2 are in place:
+- Re-add `POINT = 0`; `PointLight` with `position`, `color`, `intensity`, `radius`,
+  `casts_shadows`.
+- Deferred shader: inverse-square with a smooth radius cutoff
+  (`attenuation = saturate(1 - (d/radius)^4)^2 / (d^2 + eps)`) — no cone test, so it is
+  *cheaper* per light than a spot.
+- Clusters cull it by sphere, exactly like a spot.
+- Shadows: **not** per point light by default. A cube map is 6 renders and a
+  dual-paraboloid 2; only hero lights (L3's budget) get one.
+
+**Buys.** A point light then costs about the same as a spot in the deferred pass, and
+nothing extra in the culling structure.
+
+**Risk.** Low.
+
+---
+
+## L6. Baked / probe lighting for mass static lights
+
+**Problem.** Even with clusters, thousands of lights cost *something* per frame. Most
+scene lighting is static, and evaluating it every frame is pure waste.
+
+**Change**, in increasing order of effort:
+1. **Irradiance volume** — a 3D grid of spherical-harmonic probes baked offline/on
+   demand, sampled in the deferred shader by world position. One texture fetch replaces
+   any number of static lights. *(estimate)* 1000+ static lights, ~0 extra ms.
+2. **Lightmaps** — per-mesh UV2 bakes. Best quality for static geometry, needs a UV
+   unwrap and a bake tool.
+3. **DDGI** — probe volumes with ray-traced updates for dynamic GI feel; heavier and a
+   bigger project.
+
+Then classify lights: `static` lights go into the bake, `dynamic` lights (the few that
+move) go through L1/L2 at runtime.
+
+**Buys.** The only route that actually reaches "thousands of lights for free". Pairs
+naturally with L3's budget: bake everything static, spend the shadow tiles on the
+handful of lights that move.
+
+**Risk.** High effort, low risk to the runtime. Do it when scene content demands it.
+
+---
+
+## L7. Light data-path housekeeping (required before you trust any scaling number)
+
+**Problem.** The Python side is fine for 8 lights and dies long before the GPU does:
+- `Scene.upload_light_ubo()` allocates `np.zeros(1, BLOCK_DTYPE)` and writes each light's
+  record field by field — every frame, and it is called **twice** per frame (once in the
+  render loop, once from `register_light`).
+- `Scene.get_lights()` allocates a fresh list of fresh `LightData` objects on every call.
+- `LightData.to_dtype()` allocates a record array per light.
+- `LitScreenQuad.upload_light_space_matrices()` does one uniform call per light per frame.
+
+**Change.**
+- One preallocated `(N, ...)` numpy array sized to a capacity that grows by doubling;
+  vectorised fill; a `lights_version` counter bumped on any light change; upload only
+  when the version changed.
+- Cache the packed buffer instead of `LightData` objects: `get_lights()` returns a view
+  into it (or is dropped from the hot path entirely).
+- Move matrices into a buffer (L1) so there is no per-light uniform traffic.
+- Keep the CPU cluster build (L2 path 1) working in the same preallocated buffers.
+
+**Buys.** With 500 lights, this is the difference between a ~1 ms and a ~10 ms frame
+before the GPU has done anything.
+
+**Risk.** Low, but do it before L8 so the sweep measures the renderer, not numpy.
+
+---
+
+## L8. Validation
+
+1. Add a stress scene (`compsoft/scenes/stress_lights.py`, or a `BENCH_LIGHTS` knob in
+   `tools/bench.py`) that spawns N lights in a grid over the demo scene — mixing
+   directional, spot and point — plus a shadowed-count knob.
+2. Sweep and record: ms/frame vs N = 8, 32, 128, 512; ms/frame vs shadowed count =
+   0, 4, 8, 16; VRAM footprint from the L1/Part-1-item-12 watchdog.
+3. Gate targets *(estimates, to be replaced with measured values)*:
+   - 500 lights, no shadows: **≤ 1.5 ms added** over the current no-light baseline.
+   - 500 lights, 8 shadowed: shadow VRAM constant regardless of N.
+   - Volumetrics flat in light count after L4.
+
+---
+
+## Part 2 — expected shape after L1 + L2 + L3 + L4 (+L7)
+
+| Lights | Shadowed | Added cost *(estimate)* | Notes |
+|---|---|---|---|
+| 8 | 4 | 0 — today | baseline |
+| 32 | 8 | ~+0.3 ms | clusters already help; shadows still the limit |
+| 128 | 8 | ~+0.5 ms | CPU culling fine; GPU path preferable beyond here |
+| 512 | 8–16 | ~+0.8–1.5 ms | needs GPU cluster build and the L7 data path |
+| 1000+ | 0 (all baked, L6) | ~0 | irradiance volume replaces them at runtime |
+
+---
+
+## Not worth doing (tested / considered and rejected)
 
 - **Lowering the shadow resolution.** Its cost was never the resolution: 5120² costs
   0.36 ms now, and 2048² saves ~0.2 ms while changing only 126 pixels of a 1080p
   reference frame (max channel diff 45, i.e. a few texel-level shade differences on
-  soft edges). Keep the resolution and fit the frustum instead (item 1).
+  soft edges). Keep the resolution and fit the frustum instead (Part 1, item 1).
 - **Removing the window's 4× MSAA.** It looks free (only quads reach the default
   framebuffer) but it antialiases the forward-pass light gizmos and debug wireframes,
   and measured 16.07 vs 16.35 ms — inside the noise. Left on.
+- **Just raising `uLights[8]` to 64.** Removes the error but not the cost: the shader
+  still evaluates every light per pixel, `uLightSpaceMatrices` still needs 64 per-light
+  uniform uploads, and the volumetric pass dies at ~3 spots regardless.
+- **Forward light volumes (stencil per light).** Good for a few huge lights, bad for
+  many small ones — a small light volume still shades its whole screen-space footprint
+  with overdraw, and you lose the G-buffer reuse. Use clusters instead; light volumes
+  can still complement them for one or two screen-filling lights.
+- **A shadow cube per point light.** Six renders per light per frame; only viable for
+  1–2 hero lights, and even then dual-paraboloid (2 renders) is usually enough.
+

@@ -63,6 +63,8 @@ compsoft/
 | `compsoft/core/engine.py` | Engine loop, window management, render pipeline orchestration |
 | `compsoft/scene/scene.py` | Scene graph, actor/component hierarchy, raycasting, lights |
 | `compsoft/graphics/infrastructure/render_pass.py` | Render pass enumeration (DEFERRED, FORWARD, SHADOW) |
+| `ROADMAP.md` | Ordered rendering-perf backlog: Part 1 current renderer, Part 2 many-lights plan |
+| `tools/bench.py` | Fixed-frame benchmark + frozen-frame PNG capture for pixel diffs |
 
 ## Environment Quirks
 
