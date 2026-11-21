@@ -22,12 +22,22 @@ uniform sampler2D uPosition;
 uniform sampler2D uNormal;
 uniform sampler2D uColor;
 uniform sampler2D uSelection;
-uniform sampler2DArray uShadowMapArray;
+// Sampled through the pass' compare sampler (COMPARE_REF_TO_TEXTURE + GL_LINEAR,
+// see SceneRenderScreenQuad): each fetch is a bilinear-filtered 2x2 depth
+// comparison, i.e. the PCF filtering happens in the sampler.
+uniform sampler2DArrayShadow uShadowMapArray;
 
 uniform mat4 uLightSpaceMatrices[8];
 uniform vec3 uCameraPos;
 uniform vec2 uTexelSize;
 uniform float uTime;
+
+// 2x2 rotated grid, scaled to a ~1-texel radius. Every fetch is a hardware 2x2
+// depth comparison with bilinear weights, so these four taps cover (and blend)
+// sixteen comparisons over the same ~3x3 texel footprint the old nine NEAREST
+// fetches did - smoother edges for fewer sampler instructions.
+const vec2 PCF_OFFSETS[4] = vec2[4](vec2(1.0, 0.3333), vec2(-0.3333, 1.0),
+                                   vec2(-1.0, -0.3333), vec2(0.3333, -1.0));
 
 float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir,
                         int index) {
@@ -37,22 +47,19 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir,
       projCoords.y > 1.0 || projCoords.z > 1.0)
     return 0.0;
 
-  float currentDepth = projCoords.z;
-
   float bias = max(0.00050 * (1.0 - dot(normal, lightDir)), 0.00300);
-  float shadow = 0.0;
-  vec2 texelSize = (1.0 / textureSize(uShadowMapArray, 0)).xy;
-  for (int x = -1; x <= 1; ++x) {
-    for (int y = -1; y <= 1; ++y) {
-      float pcfDepth =
-          texture(uShadowMapArray,
-                  vec3(projCoords.xy + vec2(x, y) * texelSize, index))
-              .r;
-      shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
-    }
+  // The compare func is GL_LEQUAL: a tap returns 1.0 when the reference depth is
+  // in front of (or on) the stored depth, i.e. lit.
+  float refDepth = projCoords.z - bias;
+  vec2 texelSize = 1.0 / vec2(textureSize(uShadowMapArray, 0).xy);
+
+  float lit = 0.0;
+  for (int i = 0; i < 4; ++i) {
+    lit += texture(uShadowMapArray,
+                   vec4(projCoords.xy + PCF_OFFSETS[i] * texelSize, index,
+                        refDepth));
   }
-  shadow /= 9.0;
-  return shadow;
+  return 1.0 - lit * 0.25;
 }
 
 void main() {

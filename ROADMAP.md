@@ -10,7 +10,7 @@ Two parts:
 
 Each item states the measured problem, the change, what it buys, and how to verify it.
 Numbers come from `tools/bench.py` on the demo scene at 1920×1080 (GTX 1660 SUPER,
-6 GB) unless marked *(estimate)*.
+6 GB) unless marked _(estimate)_.
 
 Current state after the first pass: **5.68 ms/frame (176 fps) at 1080p with the
 shadow map still at 5120²**, from 74.7 ms/frame (≈17 fps). GPU work is now ~4.4 ms
@@ -19,7 +19,7 @@ total, so the frame is CPU/present-bound.
 Verification rules that apply to every item:
 
 - Anything claiming to be visually neutral must be proven: `BENCH_FREEZE=1
-  BENCH_SHOT=/tmp/before.png` on the old build, same command on the new build, then
+BENCH_SHOT=/tmp/before.png` on the old build, same command on the new build, then
   diff the PNGs (max per-channel diff must be 0).
 - Timing: `uv run python tools/bench.py` (add `BENCH_FRAMES=300` for a tight p95).
   Compare p95, not the average — rare stalls dominate the mean.
@@ -31,13 +31,13 @@ Verification rules that apply to every item:
 
 ## Done (phase 0)
 
-| Change | Effect |
-|---|---|
-| Shadow array layers allocated on demand instead of eagerly 8 | 838 MiB → 419 MiB at 5120²; SHADOW 61 ms → 0.36 ms |
-| No depth attachment / depth blit on post, vol and blur FBOs | 3 × 1080p depth blits + 25 MB VRAM removed |
-| `matrices_cache` keyed by light component, not `LightData` value | stopped unbounded per-frame dict growth |
-| `release_light()` / `destroy()` + `Engine.exit()` cleanup | shadow layers are reusable; GPU memory freed |
-| Frame clock started at window creation | profiler MIN/AVG no longer polluted by a ~1.5 s first frame |
+| Change                                                           | Effect                                                      |
+| ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| Shadow array layers allocated on demand instead of eagerly 8     | 838 MiB → 419 MiB at 5120²; SHADOW 61 ms → 0.36 ms          |
+| No depth attachment / depth blit on post, vol and blur FBOs      | 3 × 1080p depth blits + 25 MB VRAM removed                  |
+| `matrices_cache` keyed by light component, not `LightData` value | stopped unbounded per-frame dict growth                     |
+| `release_light()` / `destroy()` + `Engine.exit()` cleanup        | shadow layers are reusable; GPU memory freed                |
+| Frame clock started at window creation                           | profiler MIN/AVG no longer polluted by a ~1.5 s first frame |
 
 Measured root cause, for the record — a 5120² per-layer depth array has a hard
 residency cliff on a 6 GB card that is also driving the desktop:
@@ -56,7 +56,7 @@ watchdog to all render targets (item 12).
 
 ---
 
-## 1. Fit the shadow frustum to the casters, and snap it to texels
+## 1. Fit the shadow frustum to the casters, and snap it to texels (Done)
 
 **Problem.** `_compute_vp_matrix()` hardcodes `glm.ortho(-10, 10, -10, 10, 0.1, 50.0)`.
 The shadow map covers a fixed 20×20 world box no matter what is in it. The sandbag
@@ -64,6 +64,7 @@ pile is ~1 unit wide, so ~95% of the 26 M texels are spent on empty ground. This
 not resolution — is why shadows look pixelated.
 
 **Change.**
+
 - Compute the light-space AABB of the casters that actually intersect the light
   (`scene.shadow_casters`, already available; use each component's transformed AABB).
 - Build a square ortho box from those bounds, padded, with a sane minimum size.
@@ -71,8 +72,8 @@ not resolution — is why shadows look pixelated.
   crawl when the camera or light moves.
 - Do it per light type: directional fits the whole caster set, spot fits its cone.
 
-**Buys.** 5–10× effective texel density at the same memory *(estimate, depends on
-scene spread)*. Shadow pixelation drops without spending a byte, and it makes item 5
+**Buys.** 5–10× effective texel density at the same memory _(estimate, depends on
+scene spread)_. Shadow pixelation drops without spending a byte, and it makes item 5
 (CSM) and item 6 (atlas) much easier to land, because both need a fitted frustum.
 
 **Verify.** Visual: shadow edges must get crisper, no shimmering while orbiting.
@@ -80,7 +81,7 @@ Perf must stay flat (SHADOW ≤ 0.5 ms).
 
 ---
 
-## 2. Hardware depth comparison instead of manual PCF
+## 2. Hardware depth comparison instead of manual PCF (Done)
 
 **Problem.** `lit/fragment.glsl` does a 3×3 loop of `texture(uShadowMapArray, …).r`
 with a hand-rolled bias. Nine dependent texture fetches per light per pixel, and the
@@ -89,14 +90,39 @@ result is still blocky because each fetch is NEAREST.
 **Change.** Set `GL_TEXTURE_COMPARE_MODE = GL_COMPARE_REF_TO_TEXTURE` (and
 `GL_TEXTURE_COMPARE_FUNC = GL_LEQUAL`) on the shadow array, declare the sampler as
 `sampler2DArrayShadow`, and use `texture(…, vec4(uv, layer, refDepth))`. The compare
-+ 2×2 bilinear filter then happens in the sampler for free. Keep the 3×3 loop if you
-want extra softness, or drop to 2×2 with a rotated pattern.
 
-**Buys.** Smoother shadow edges at the *same* resolution, and fewer effective fetches
+- 2×2 bilinear filter then happens in the sampler for free. Keep the 3×3 loop if you
+  want extra softness, or drop to 2×2 with a rotated pattern.
+
+**Buys.** Smoother shadow edges at the _same_ resolution, and fewer effective fetches
 per pixel. This is the cheapest direct fix for pixelation.
 
 **Verify.** Pixel diff is expected to change (that is the point) — compare against the
 reference visually at the shadow boundary only; keep SHADOW and LIGHTING flat.
+
+**Landed.** The compare state lives on a **sampler object** bound to the lighting
+pass' unit rather than on the shadow array itself: the volumetric and debug-depth
+passes read the same texture's raw depth, and compare+`GL_LINEAR` on the texture
+object made the volumetric pass **2.09 → 2.52 ms** (bilinear compare fetches at 84
+per pixel). With the state per unit instead, the fog pass is untouched and only the
+lighting pass pays for filtering. Kernel is now four rotated-grid taps at a ~1-texel
+radius; each tap is a 2×2 filtered compare, so it still averages sixteen comparisons
+over the old 3×3 footprint. `GL_LEQUAL` means a tap passes when
+`refDepth = projCoords.z - bias` is `<=` the stored depth (lit).
+
+Measured (`BENCH_FRAMES=300`, two runs each, 1920×1080, shadow map 5120²):
+
+| Pass     | Before (min/avg/p95) | After (min/avg/p95) |
+| -------- | -------------------- | ------------------- |
+| LIGHTING | 0.28 / 0.31 / 0.41   | 0.25 / 0.27 / 0.30  |
+| VOL      | 1.52 / 1.59 / 1.76   | 1.53 / 1.58 / 1.72  |
+| SHADOW   | 0.13 / 0.13 / 0.15   | 0.13 / 0.13 / 0.15  |
+
+Frozen-frame diff (both runs verified bit-identical first): 72 pixels changed at
+5120² (max 9/255) and 278 at 1024² (max 18/255), every changed pixel within 5 px of a
+shadow edge — no shading change in flat regions, i.e. no new acne. The visual gain is
+modest at 5120² because item 1 already made texels sub-pixel; it is the cheap
+prerequisite for the coarser maps item 5/6 will use.
 
 ---
 
@@ -112,7 +138,7 @@ composite using the position buffer to reject samples across depth discontinuiti
 (bilateral / joint-bilateral filter). The existing blur pass is already a good home
 for this.
 
-**Buys.** ~4× fewer marching pixels → **~0.6 ms** *(estimate)*, near-identical output
+**Buys.** ~4× fewer marching pixels → **~0.6 ms** _(estimate)_, near-identical output
 for fog. Watch for haloing where fog overlaps object silhouettes; that is what the
 depth-weighted upsample is for.
 
@@ -125,7 +151,7 @@ the half-res texel size, not the window size.
 
 **Problem.** `vol_light/fragment.glsl` marches all 28 steps from the camera for every
 spot light, even when the ray never enters that light's cone. Roughly the intersection
-test *is* the frame: `spotFactor` is computed at every step and most are zero, but the
+test _is_ the frame: `spotFactor` is computed at every step and most are zero, but the
 loop still runs and the shadow fetch still happens whenever
 `projCoords` happens to be in range.
 
@@ -133,7 +159,7 @@ loop still runs and the shadow fetch still happens whenever
 sphere at the light's range) and march only `[t0, t1]`, distributing the same 28
 steps over that interval. Skip the light entirely when there is no intersection.
 
-**Buys.** Fewer wasted samples *and* better sample distribution for the same step
+**Buys.** Fewer wasted samples _and_ better sample distribution for the same step
 count, so image quality goes **up** while cost goes down. Pairs naturally with item 3
 (half-res + clipped interval).
 
@@ -208,6 +234,7 @@ RGBA16F normal, RGBA16F albedo, R16F selection. Every full-screen pass then read
 those back — the position buffer in particular is the volumetric pass' main input.
 
 **Change.** Two steps, in order of payoff:
+
 1. Reconstruct world position from the depth buffer instead of storing RGBA16F
    (saves 8 B/px; needs the inverse view-projection as a uniform — already computed in
    `engine.py` for the volumetric pass).
@@ -216,7 +243,7 @@ those back — the position buffer in particular is the volumetric pass' main in
    run the gbuffer shader (helps here, since the 100×100 ground plane has heavy
    overdraw).
 
-**Buys.** ~40% less G-buffer bandwidth *(estimate)*, which mostly shows up as headroom
+**Buys.** ~40% less G-buffer bandwidth _(estimate)_, which mostly shows up as headroom
 on the fill-heavy `DEFERRED` pass and on the passes that read it.
 
 **Risk.** Moderate: every shader that reads `uPosition` / `uNormal` must change.
@@ -241,7 +268,7 @@ two full-screen passes is pure copy.
 **Change.** Make the vertical blur pass sample `post_fb.color_tex` as well and write
 `sceneColor + blur`, dropping the `postprocess` pass to a single draw.
 
-**Buys.** One full-screen 1080p pass (~0.2 ms *(estimate)*). Trivial change, so it is
+**Buys.** One full-screen 1080p pass (~0.2 ms _(estimate)_). Trivial change, so it is
 worth doing opportunistically, but it is not worth its own commit.
 
 ---
@@ -253,13 +280,14 @@ wall-clock. Per mesh per pass the engine calls `material.use()` → `glUseProgra
 `value_ptr` + `glUniformMatrix4fv` for MVP/model/normal matrix, and a texture bind pair.
 
 **Change.**
+
 - Move camera-derived matrices (view, projection, inverse view-projection) into a
   per-frame uniform block, uploaded once.
 - Batch draws by material/shader and sort by VAO to cut state changes.
 - Cache `value_ptr` results per matrix instance rather than re-deriving them for
   `gbuffer` and `depth` in the same frame.
 
-**Buys.** *(estimate)* 1–2 ms on this scene; the payoff grows with object count.
+**Buys.** _(estimate)_ 1–2 ms on this scene; the payoff grows with object count.
 
 **Risk.** Low, but measure before and after with `BENCH_NO_DEBUG=1` so the profiler
 itself isn't in the number.
@@ -269,7 +297,7 @@ itself isn't in the number.
 ## 12. VRAM watchdog and budget reporting
 
 **Problem.** The failure mode fixed in phase 0 was silent: a 100× slowdown with no
-error, and the profiler attributed it to the shadow *pass* while the volumetric pass
+error, and the profiler attributed it to the shadow _pass_ while the volumetric pass
 was really being starved by the same allocation.
 
 **Change.** Print total render-target footprint at startup (each `FrameBuffer` knows
@@ -287,17 +315,17 @@ push the app over the cliff.
 # Part 2 — Scaling to many lights (point, spot, directional)
 
 Target: hundreds to thousands of lights on this GPU, with roughly constant cost per
-frame. The `uLights[8]` UBO is the *visible* cap, but it is the cheapest wall to
+frame. The `uLights[8]` UBO is the _visible_ cap, but it is the cheapest wall to
 remove and not the first one that hurts. In the order they actually hit:
 
-| Wall | Where | Gives out at |
-|---|---|---|
-| Per-pixel loop pays full price for every light | `lit/fragment.glsl`, `vol_light/fragment.glsl` | ~16–32 lights |
-| One shadow layer per light (5120² × 4 B = **105 MiB each**) | `ShadowFrameBuffer.get_light_layer` | 4–5 shadowed lights before the VRAM cliff |
-| Volumetric marching: 28 steps × every spot light | `vol_light/fragment.glsl` | 2–3 spots (already 2.08 ms) |
-| `uLights[8]` / `uActiveLightCount` | `LightData.BLOCK_DTYPE`, both shaders | 8 — extra lights are silently dropped by `min(len(lights), 8)` |
-| `uLightSpaceMatrices[8]` + one `set_uniform_matrix` per light per frame | `screen_quad.py` | 8 |
-| `upload_light_ubo()`: `np.zeros` + per-light record fill, twice per frame | `scene.py` | ~200–1000 lights (ms of Python) |
+| Wall                                                                      | Where                                          | Gives out at                                                   |
+| ------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
+| Per-pixel loop pays full price for every light                            | `lit/fragment.glsl`, `vol_light/fragment.glsl` | ~16–32 lights                                                  |
+| One shadow layer per light (5120² × 4 B = **105 MiB each**)               | `ShadowFrameBuffer.get_light_layer`            | 4–5 shadowed lights before the VRAM cliff                      |
+| Volumetric marching: 28 steps × every spot light                          | `vol_light/fragment.glsl`                      | 2–3 spots (already 2.08 ms)                                    |
+| `uLights[8]` / `uActiveLightCount`                                        | `LightData.BLOCK_DTYPE`, both shaders          | 8 — extra lights are silently dropped by `min(len(lights), 8)` |
+| `uLightSpaceMatrices[8]` + one `set_uniform_matrix` per light per frame   | `screen_quad.py`                               | 8                                                              |
+| `upload_light_ubo()`: `np.zeros` + per-light record fill, twice per frame | `scene.py`                                     | ~200–1000 lights (ms of Python)                                |
 
 So: lifting the array size alone buys maybe 16–32 lights before the volumetric pass
 collapses. The order below is designed so each phase removes the wall the previous
@@ -319,6 +347,7 @@ with the count passed as a UBO member. Two shaders declare `LightData uLights[8]
 per frame.
 
 **Change.**
+
 1. Bump the context to 4.3 core (or 4.6) in `window.py` — the 1660 SUPER is a 4.6 part
    and PyOpenGL exposes everything. This unlocks SSBOs, compute (L2 GPU path), image
    store (L4) and `glCopyImageSubData` (shadow caching). If 3.3 must stay for
@@ -340,12 +369,10 @@ struct GpuLight {        // 32 bytes
 };
 ```
 
-1000 lights = 32 KB. Upload is one `glBufferSubData`.
-4. Move `uLightSpaceMatrices` into a buffer as well (or into the per-light struct as
-   four `mat4` in a parallel array indexed by shadow tile) so per-light uniform uploads
-   disappear entirely.
-5. Shader loop becomes `GpuLight l = lightAt(i);` with `lightAt` doing a
-   `texelFetch`/`lightData[i]` — no per-light uniform state.
+1000 lights = 32 KB. Upload is one `glBufferSubData`. 4. Move `uLightSpaceMatrices` into a buffer as well (or into the per-light struct as
+four `mat4` in a parallel array indexed by shadow tile) so per-light uniform uploads
+disappear entirely. 5. Shader loop becomes `GpuLight l = lightAt(i);` with `lightAt` doing a
+`texelFetch`/`lightData[i]` — no per-light uniform state.
 
 **Buys.** Removes the hard cap and the per-light CPU submission cost. Prerequisite for
 everything else.
@@ -373,16 +400,16 @@ its own cluster's lights.
 - Two implementations, in this order:
   1. **CPU (works on GL 3.3 today).** Vectorised numpy: project each light's sphere to a
      tile range + z-slice range, then scatter into per-cluster lists. 3456 clusters ×
-     500 lights is a few numpy passes, *(estimate)* 1–3 ms — acceptable while the GPU
+     500 lights is a few numpy passes, _(estimate)_ 1–3 ms — acceptable while the GPU
      path doesn't exist, and it is measurable immediately.
   2. **GPU compute (after L1's context bump).** Per-cluster dispatch: test lights
      against the cluster AABB, `atomicAdd` into a count buffer, second pass writes
-     indices into an SSBO at the reserved offsets. *(estimate)* <0.2 ms for 1000 lights.
+     indices into an SSBO at the reserved offsets. _(estimate)_ <0.2 ms for 1000 lights.
      This is the version to land long-term; it also frees the CPU for shadow policy.
 - Upload cluster offsets/counts and the index list as one buffer; the shader computes
   its cluster index from `gl_FragCoord` and view-space depth (no extra pass needed).
 
-**Buys.** Per-pixel cost becomes proportional to *overlapping* lights (typically 2–6 in
+**Buys.** Per-pixel cost becomes proportional to _overlapping_ lights (typically 2–6 in
 a dense scene) instead of total lights. This is what makes hundreds of lights cheap.
 The same cluster lists are reused by the volumetric pass in L4 — one culling structure,
 two consumers.
@@ -401,9 +428,10 @@ cliff is around 600–700 MiB. Many shadowed lights is therefore impossible by
 construction, no matter how the light list is stored.
 
 **Change.**
+
 1. Shadow **atlas** with per-light tiles (Part 1, item 6), total VRAM fixed by design —
    e.g. 4096² = 67 MiB for the whole renderer.
-2. A **budget policy** in `Scene`/`ShadowFrameBuffer`: at most *K* shadowed lights
+2. A **budget policy** in `Scene`/`ShadowFrameBuffer`: at most _K_ shadowed lights
    (start with 8–16). Select per frame by importance = screen-space light size ×
    intensity × a `shadow_priority` field; the sun/directional light is always in. Give
    tiles **hysteresis** (keep the same tile across frames unless the ranking changes by
@@ -427,16 +455,17 @@ L1/L2 — the packing depends on per-light data being in a buffer.
 
 ## L4. Froxel volumetrics instead of per-pixel marching
 
-**Problem.** `vol_light/fragment.glsl` marches `NUM_STEPS = 28` per *spot light* per
+**Problem.** `vol_light/fragment.glsl` marches `NUM_STEPS = 28` per _spot light_ per
 pixel: at 4 lights that is up to 84 shadow fetches/px, and it is already 2.08 ms avg /
 3.31 ms p95. With 50 spots it is unshippable, and the cone-clip trick (Part 1, item 4)
 only helps with sparse lights.
 
 **Change.** Compute volumetric scattering in a **3D froxel volume** instead:
+
 1. Volume: 160×90×64 (or the cluster grid) of RGBA16F = 7.4 MB; one 3D texture.
 2. **Injection:** for each froxel, loop over its cluster's lights (reuse L2's lists),
    evaluate the phase function + shadow visibility, accumulate in-scattering. This is
-   the only per-light term, and it is per *froxel*, not per pixel.
+   the only per-light term, and it is per _froxel_, not per pixel.
 3. **Blur:** separable 3D blur (or a few 3D Kawase-style passes) to remove the low
    froxel resolution.
 4. **Composite:** one full-res pass that samples the volume by view depth and adds it to
@@ -447,7 +476,7 @@ per z-slice into the 3D texture layer via an FBO per layer, or layered rendering
 geometry shader.
 
 **Buys.** Volumetric cost becomes ~independent of light count and of screen resolution:
-*(estimate)* ~1 ms total for 50 spots, vs 2.08 ms today for four. It also decouples
+_(estimate)_ ~1 ms total for 50 spots, vs 2.08 ms today for four. It also decouples
 volumetrics from shadow-map resolution, which is what bit you in phase 0.
 
 **Risk.** Moderate-high (new subsystem). Land Part 1 item 4 first to get an interim win
@@ -461,11 +490,12 @@ without a rewrite.
 in `light.py`, so only directional and spot exist.
 
 **Change.** Small once L1/L2 are in place:
+
 - Re-add `POINT = 0`; `PointLight` with `position`, `color`, `intensity`, `radius`,
   `casts_shadows`.
 - Deferred shader: inverse-square with a smooth radius cutoff
   (`attenuation = saturate(1 - (d/radius)^4)^2 / (d^2 + eps)`) — no cone test, so it is
-  *cheaper* per light than a spot.
+  _cheaper_ per light than a spot.
 - Clusters cull it by sphere, exactly like a spot.
 - Shadows: **not** per point light by default. A cube map is 6 renders and a
   dual-paraboloid 2; only hero lights (L3's budget) get one.
@@ -479,13 +509,14 @@ nothing extra in the culling structure.
 
 ## L6. Baked / probe lighting for mass static lights
 
-**Problem.** Even with clusters, thousands of lights cost *something* per frame. Most
+**Problem.** Even with clusters, thousands of lights cost _something_ per frame. Most
 scene lighting is static, and evaluating it every frame is pure waste.
 
 **Change**, in increasing order of effort:
+
 1. **Irradiance volume** — a 3D grid of spherical-harmonic probes baked offline/on
    demand, sampled in the deferred shader by world position. One texture fetch replaces
-   any number of static lights. *(estimate)* 1000+ static lights, ~0 extra ms.
+   any number of static lights. _(estimate)_ 1000+ static lights, ~0 extra ms.
 2. **Lightmaps** — per-mesh UV2 bakes. Best quality for static geometry, needs a UV
    unwrap and a bake tool.
 3. **DDGI** — probe volumes with ray-traced updates for dynamic GI feel; heavier and a
@@ -505,6 +536,7 @@ handful of lights that move.
 ## L7. Light data-path housekeeping (required before you trust any scaling number)
 
 **Problem.** The Python side is fine for 8 lights and dies long before the GPU does:
+
 - `Scene.upload_light_ubo()` allocates `np.zeros(1, BLOCK_DTYPE)` and writes each light's
   record field by field — every frame, and it is called **twice** per frame (once in the
   render loop, once from `register_light`).
@@ -513,6 +545,7 @@ handful of lights that move.
 - `LitScreenQuad.upload_light_space_matrices()` does one uniform call per light per frame.
 
 **Change.**
+
 - One preallocated `(N, ...)` numpy array sized to a capacity that grows by doubling;
   vectorised fill; a `lights_version` counter bumped on any light change; upload only
   when the version changed.
@@ -535,7 +568,7 @@ before the GPU has done anything.
    directional, spot and point — plus a shadowed-count knob.
 2. Sweep and record: ms/frame vs N = 8, 32, 128, 512; ms/frame vs shadowed count =
    0, 4, 8, 16; VRAM footprint from the L1/Part-1-item-12 watchdog.
-3. Gate targets *(estimates, to be replaced with measured values)*:
+3. Gate targets _(estimates, to be replaced with measured values)_:
    - 500 lights, no shadows: **≤ 1.5 ms added** over the current no-light baseline.
    - 500 lights, 8 shadowed: shadow VRAM constant regardless of N.
    - Volumetrics flat in light count after L4.
@@ -544,13 +577,13 @@ before the GPU has done anything.
 
 ## Part 2 — expected shape after L1 + L2 + L3 + L4 (+L7)
 
-| Lights | Shadowed | Added cost *(estimate)* | Notes |
-|---|---|---|---|
-| 8 | 4 | 0 — today | baseline |
-| 32 | 8 | ~+0.3 ms | clusters already help; shadows still the limit |
-| 128 | 8 | ~+0.5 ms | CPU culling fine; GPU path preferable beyond here |
-| 512 | 8–16 | ~+0.8–1.5 ms | needs GPU cluster build and the L7 data path |
-| 1000+ | 0 (all baked, L6) | ~0 | irradiance volume replaces them at runtime |
+| Lights | Shadowed          | Added cost _(estimate)_ | Notes                                             |
+| ------ | ----------------- | ----------------------- | ------------------------------------------------- |
+| 8      | 4                 | 0 — today               | baseline                                          |
+| 32     | 8                 | ~+0.3 ms                | clusters already help; shadows still the limit    |
+| 128    | 8                 | ~+0.5 ms                | CPU culling fine; GPU path preferable beyond here |
+| 512    | 8–16              | ~+0.8–1.5 ms            | needs GPU cluster build and the L7 data path      |
+| 1000+  | 0 (all baked, L6) | ~0                      | irradiance volume replaces them at runtime        |
 
 ---
 
@@ -572,4 +605,3 @@ before the GPU has done anything.
   can still complement them for one or two screen-filling lights.
 - **A shadow cube per point light.** Six renders per light per frame; only viable for
   1–2 hero lights, and even then dual-paraboloid (2 renders) is usually enough.
-

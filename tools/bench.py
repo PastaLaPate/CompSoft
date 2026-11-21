@@ -84,6 +84,10 @@ def _patch() -> None:
     if FREEZE:
         # Static scene: two runs then produce identical pixels.
         engine_mod.Engine._add_prerender_listener = lambda self, listener: None
+        # ...and ignore input too: a click landing on the window moves the camera
+        # or selects a mesh, which changes pixels and can crash the run outright
+        # (raycast selection hits a component that was never drawn).
+        window_mod.Window.poll_events = lambda self: None
 
     if NO_DEBUG:
         debug_mod.Debug.add_flag = lambda self, flag: None

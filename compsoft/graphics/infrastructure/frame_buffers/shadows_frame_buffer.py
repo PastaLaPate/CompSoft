@@ -126,6 +126,11 @@ class ShadowFrameBuffer:
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        # No compare mode here on purpose: the volumetric and debug passes read
+        # raw depth through this texture object. The lighting pass binds a
+        # compare sampler object on its own unit instead (see
+        # SceneRenderScreenQuad.shadow_sampler), which is what turns its shadow
+        # fetches into hardware-filtered PCF.
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
 
         # Existing layer assignments keep their index; their contents are dropped but
