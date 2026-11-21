@@ -63,9 +63,12 @@ class FrameBuffer(ABC):
 
     needs_depth: bool = True
 
-    def __init__(self, width: int, height: int) -> None:
-        self.width = width
-        self.height = height
+    def __init__(self, width: int, height: int, scale: float = 1.0) -> None:
+        # scale < 1 allocates the target at a fraction of the window size: the
+        # volumetric chain runs at 0.5 and is upsampled at composite time.
+        self.scale = scale
+        self.width = self._scaled(width)
+        self.height = self._scaled(height)
 
         self.fbo = 0
         self.drb = 0  # depth render buffer
@@ -73,6 +76,9 @@ class FrameBuffer(ABC):
         self.textures = []
 
         self.build()
+
+    def _scaled(self, value: int) -> int:
+        return max(1, round(value * self.scale))
 
     @abstractmethod
     def color_attachments(self) -> list[ColorAttachment]:
@@ -145,6 +151,8 @@ class FrameBuffer(ABC):
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
 
     def _on_window_size_changed(self, w: int, h: int) -> None:
+        w = self._scaled(w)
+        h = self._scaled(h)
         if w == self.width and h == self.height:
             return
         self.width = w

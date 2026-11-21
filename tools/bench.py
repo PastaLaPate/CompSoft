@@ -27,6 +27,8 @@ import sys
 import time
 from typing import Any, cast
 
+import glfw
+
 WIDTH = int(os.environ.get("BENCH_W") or "1920")
 HEIGHT = int(os.environ.get("BENCH_H") or "1080")
 FRAMES = int(os.environ.get("BENCH_FRAMES") or "200")
@@ -55,12 +57,16 @@ def _capture_on_last_frame(window_cls: type[Any]) -> None:
     def swap_buffers(self):
         self._bench_frame = getattr(self, "_bench_frame", 0) + 1
         if self._bench_frame == FRAMES:
+            # Read the drawable, not the requested size: asking for more rows
+            # than the window actually has returns stale memory, which used to
+            # put a band of garbage at the top of every diff.
+            width, height = self.size
             glPixelStorei(GL_PACK_ALIGNMENT, 1)
             # GL_RGB / GL_UNSIGNED_BYTE
-            raw = bytes(glReadPixels(0, 0, WIDTH, HEIGHT, 0x1907, 0x1401))
-            pixels = np.frombuffer(raw, np.uint8).reshape(HEIGHT, WIDTH, 3)
+            raw = bytes(glReadPixels(0, 0, width, height, 0x1907, 0x1401))
+            pixels = np.frombuffer(raw, np.uint8).reshape(height, width, 3)
             Image.fromarray(pixels[::-1]).save(shot_path)
-            print(f"# wrote {shot_path}", flush=True)
+            print(f"# wrote {shot_path} ({width}x{height})", flush=True)
         return original_swap(self)
 
     window_cls.swap_buffers = swap_buffers
@@ -71,7 +77,18 @@ def _patch() -> None:
 
     def bench_window_init(self, w, h, title):
         window_init(self, WIDTH, HEIGHT, title)
-        self.size = (WIDTH, HEIGHT)  # the render targets are sized from this
+        # The window manager can refuse the requested size (a 1080-tall window
+        # does not fit a 1080-tall desktop with panels). Everything downstream -
+        # render targets, viewports, readback - has to use what the drawable
+        # really is, otherwise the scene is rendered for a size nobody displays
+        # and extra rows read back stale memory.
+        fb_w, fb_h = glfw.get_framebuffer_size(self.window)
+        if (fb_w, fb_h) != (WIDTH, HEIGHT):
+            print(
+                f"# WARNING: requested {WIDTH}x{HEIGHT}, window is {fb_w}x{fb_h}",
+                flush=True,
+            )
+        self.size = (fb_w, fb_h)  # the render targets are sized from this
 
     window_mod.Window.__init__ = bench_window_init
 

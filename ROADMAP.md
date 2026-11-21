@@ -126,7 +126,7 @@ prerequisite for the coarser maps item 5/6 will use.
 
 ---
 
-## 3. Half-resolution volumetrics with a depth-aware upsample
+## 3. Half-resolution volumetrics with a depth-aware upsample (Done)
 
 **Problem.** The volumetric pass is now the single most expensive pass
 (**2.08 ms avg, 3.31 ms p95**) — 28 steps × up to 4 spot lights, i.e. up to 84 shadow
@@ -144,6 +144,41 @@ depth-weighted upsample is for.
 
 **Risk.** Low-moderate. Everything downstream of `vol_fb` (blur, composite) must use
 the half-res texel size, not the window size.
+
+**Landed.** `FrameBuffer` takes a `scale`, so `vol_fb` and the horizontal blur target
+allocate at half size and follow window resizes through the same listener. The
+vertical blur moved into a new `vol_composite` pass that runs at full resolution and
+weights every tap by |scene distance at the tap − scene distance at the pixel|
+(linear falloff squared, tolerance `max(0.05, 2% of distance)`), reading the full-res
+position buffer as guidance — that is the joint-bilateral upsample, and it also
+rejects fog bleeding across silhouettes in Y. Sky reads 1e6 so it never rejects
+against itself. Bilinear in X comes free: the fog texture is `GL_LINEAR`. Buffers are
+3 × 4.1 MiB at 1080p instead of 2 × 16.6 MiB, and one full-screen pass went away
+(the old chain was vol + 2 blurs + composite).
+
+Measured (`BENCH_FRAMES=300`, two runs each, 1920×992 — see the harness note below):
+
+| Pass                        | Before (min/avg/p95) | After (min/avg/p95) |
+| --------------------------- | -------------------- | ------------------- |
+| VOL LIGHTNING               | 1.45 / 1.54 / 1.75   | 0.38 / 0.39 / 0.43  |
+| BLUR (horizontal, half res) | 0.26 / 0.27 / 0.30   | 0.04 / 0.04 / 0.05  |
+| VOL COMPOSITE (new)         | —                    | 0.13 / 0.13 / 0.15  |
+| loop                        | 4.90 ms (204 fps)    | 3.64 ms (275 fps)   |
+
+The volumetric chain as a whole: **1.81 → 0.56 ms**, 3.2× cheaper, ~26% off the frame.
+
+Frozen-frame diff against the full-resolution chain (both runs bit-identical first):
+max 17/255, mean 1.06, 98% of pixels within 2 levels, no halo band along silhouettes
+(per-block mean |diff| stays between 0.0 and 2.1; only 4 px brighter and 21 darker by
+more than 4). The residual is the expected half-res sampling difference in fog
+distribution, not lost or doubled light.
+
+**Harness note.** `BENCH_W/BENCH_H` is a *request*: this desktop gives a 1920×992
+window for a 1920×1080 ask. The bench used to keep rendering and reading 1080 rows
+anyway, so every PNG had ~88 rows of stale VRAM at the top and the render targets were
+a size nobody displayed. It now prints the achieved size and uses it for the targets,
+the viewport and the readback. Item 2's diff is unaffected (the stale band was
+identical in both captures).
 
 ---
 

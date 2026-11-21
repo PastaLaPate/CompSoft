@@ -40,6 +40,9 @@ from compsoft.graphics.infrastructure.quads.lit_screen_quad import (
 from compsoft.graphics.infrastructure.quads.post_screen_quad import (
     PostScreenQuad,
 )
+from compsoft.graphics.infrastructure.quads.vol_composite_screen_quad import (
+    VolumetricCompositeScreenQuad,
+)
 from compsoft.graphics.infrastructure.quads.vol_light_screen_quad import (
     VolumetricLightScreenQuad,
 )
@@ -118,13 +121,19 @@ class Engine:
         # )
 
         self.fb = SceneFrameBuffer(*self.window.size)
-        self.vol_fb = VolumetricLightFrameBuffer(*self.window.size)
-        self.blur_fb = VolumetricLightFrameBuffer(*self.window.size)
+        # The volumetric chain runs at half resolution: fog has no high-frequency
+        # detail, so marching 28 steps per *full-res* pixel was pure waste. The
+        # composite pass upsamples it back with a depth-aware filter.
+        self.vol_fb = VolumetricLightFrameBuffer(*self.window.size, scale=0.5)
+        self.vol_blur_fb = VolumetricLightFrameBuffer(*self.window.size, scale=0.5)
         self.post_fb = VolumetricLightFrameBuffer(*self.window.size)
 
         self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
         self.vol_sq = VolumetricLightScreenQuad(resources.get_shader_path("vol_light"))
         self.blur_sq = BlurScreenQuad(resources.get_shader_path("blur"))
+        self.vol_composite_sq = VolumetricCompositeScreenQuad(
+            resources.get_shader_path("vol_composite")
+        )
         self.post_sq = PostScreenQuad(resources.get_shader_path("postprocess"))
 
         self.profiler = Profiler()
@@ -133,7 +142,7 @@ class Engine:
             self.construct_debug_depth_sq()
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
         self.window.add_window_resize_listener(self.vol_fb._on_window_size_changed)
-        self.window.add_window_resize_listener(self.blur_fb._on_window_size_changed)
+        self.window.add_window_resize_listener(self.vol_blur_fb._on_window_size_changed)
         self.window.add_window_resize_listener(self.post_fb._on_window_size_changed)
 
     def construct_debug_depth_sq(self):
@@ -234,7 +243,8 @@ class Engine:
                 ):
                     self.vol_sq.bind_shader(light_space_matrices)
                     self.vol_sq.render(
-                        *self.window.size,
+                        self.vol_fb.width,
+                        self.vol_fb.height,
                         self.fb.position_tex,
                         self.shadows_fb.shadow_array_tex,
                         self.scene.camera.pos,
@@ -249,25 +259,33 @@ class Engine:
                         ),
                     )
 
-                with self.profiler.pass_timer("Blur", enabled=debug_complex):
-                    with self.blur_fb:
-                        self.blur_sq.bind_shader()
-                        self.blur_sq.render(
-                            self.window.size[0],
-                            self.window.size[1],
-                            self.vol_fb.color_tex,
-                            blur_direction=vec2(1, 0),
-                        )
+                with (
+                    self.profiler.pass_timer("Blur", enabled=debug_complex),
+                    # Horizontal half of the separable blur, still at half res.
+                    self.vol_blur_fb,
+                ):
+                    self.blur_sq.bind_shader()
+                    self.blur_sq.render(
+                        self.vol_blur_fb.width,
+                        self.vol_blur_fb.height,
+                        self.vol_fb.color_tex,
+                        blur_direction=vec2(1, 0),
+                    )
 
+                with self.profiler.pass_timer("Vol Composite", enabled=debug_complex):
+                    # Vertical half of the blur plus the depth-aware upsample,
+                    # added on top of the forward pass' output.
                     glEnable(GL_BLEND)
                     glBlendFunc(GL_ONE, GL_ONE)
                     glDepthMask(GL_FALSE)
-                    self.blur_sq.bind_shader()
-                    self.blur_sq.render(
-                        self.window.size[0],
-                        self.window.size[1],
-                        self.blur_fb.color_tex,
-                        blur_direction=vec2(0, 1),
+                    self.vol_composite_sq.bind_shader()
+                    self.vol_composite_sq.render(
+                        *self.window.size,
+                        self.vol_blur_fb.color_tex,
+                        self.vol_blur_fb.width,
+                        self.vol_blur_fb.height,
+                        self.fb.position_tex,
+                        self.scene.camera.pos,
                     )
                     glDepthMask(GL_TRUE)
                     glDisable(GL_BLEND)
@@ -289,9 +307,10 @@ class Engine:
         self.profiler.stop()
         self.fb.destroy()
         self.vol_fb.destroy()
-        self.blur_fb.destroy()
+        self.vol_blur_fb.destroy()
         self.post_fb.destroy()
         self.shadows_fb.destroy()
         self.sq.destroy()
+        self.vol_composite_sq.destroy()
 
         self.window.exit()
