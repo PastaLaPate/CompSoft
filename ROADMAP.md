@@ -326,7 +326,7 @@ over-inclusion makes it wasted work.
 
 ---
 
-## 10. Fold the postprocess copy into the blur composite
+## 10. Fold the postprocess copy into the blur composite (Done)
 
 **Problem.** `PostScreenQuad` copies `post_fb.color_tex` to the default framebuffer,
 and then the vertical blur draw composites on top with `GL_ONE, GL_ONE`. One of those
@@ -337,6 +337,27 @@ two full-screen passes is pure copy.
 
 **Buys.** One full-screen 1080p pass (~0.2 ms _(estimate)_). Trivial change, so it is
 worth doing opportunistically, but it is not worth its own commit.
+
+**Landed.** Simpler than the plan: the lighting quad now renders **straight into the
+window** and `post_fb` plus the whole postprocess pass are gone. Folding the copy into
+the composite instead would have made the composite *overwrite* the forward-pass gizmos
+(or forced them to be drawn after the fog, changing how gizmos interact with it), while
+the lighting quad is opaque and full screen — nothing ever read `post_fb.color_tex`
+except the copy. Saves the pass, one FBO (8 MiB of RGBA16F at 1080p), its resize
+listener and three GL calls per frame. `PostScreenQuad` and
+`assets/shaders/postprocess/` are deleted (in git if a tone-mapping pass comes back).
+
+Measured (`BENCH_FRAMES=300`, two runs each, animated scene, 1920×992):
+
+| Pass     | Before (min/avg/p95) | After (min/avg/p95) |
+| -------- | -------------------- | ------------------- |
+| LIGHTING | 0.24 / 0.26 / 0.33   | 0.19 / 0.21 / 0.27  |
+| loop     | 3.55 ms (282 fps)    | 3.39 ms (295 fps)   |
+
+The copy itself was only ~0.05 ms of GPU time; the rest of the frame win is the
+per-frame CPU setup it also cost (this frame is CPU/present-bound). The whole frame
+diff against the previous build is **2 pixels at 1/255** — the 16F→8-bit conversion
+happening in the window instead of through a sampled copy, nothing else.
 
 ---
 

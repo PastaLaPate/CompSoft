@@ -85,11 +85,11 @@ os.environ["DRI_PRIME"] = "1"
 
 1. **Deferred Pass** → Color/normal/depth textures
 2. **Shadow Map** → Per-light shadow buffers (8 lights max)
-3. **Lighting Pass** → Combine lighting with shadows
+3. **Lighting Pass** → Combine lighting with shadows, straight into the window
 4. **Forward Pass** → Final geometry rendering
-5. **Volumetric Light** → Volume lighting effect
-6. **Blur Pass** → Horizontal + vertical blur for volumetric effect
-7. **Post-process** → Final tone mapping
+5. **Volumetric Light** → Half-res fog march, clipped to each spot's cone
+6. **Blur Pass** → Horizontal half of the separable blur, at half res
+7. **Volumetric Composite** → Vertical blur + depth-aware upsample, added on top
 
 ## Scene Graph Hierarchy
 

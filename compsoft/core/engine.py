@@ -37,9 +37,6 @@ from compsoft.graphics.infrastructure.quads.blur_screen_quad import (
 from compsoft.graphics.infrastructure.quads.lit_screen_quad import (
     SceneRenderScreenQuad,
 )
-from compsoft.graphics.infrastructure.quads.post_screen_quad import (
-    PostScreenQuad,
-)
 from compsoft.graphics.infrastructure.quads.vol_composite_screen_quad import (
     VolumetricCompositeScreenQuad,
 )
@@ -126,7 +123,6 @@ class Engine:
         # composite pass upsamples it back with a depth-aware filter.
         self.vol_fb = VolumetricLightFrameBuffer(*self.window.size, scale=0.5)
         self.vol_blur_fb = VolumetricLightFrameBuffer(*self.window.size, scale=0.5)
-        self.post_fb = VolumetricLightFrameBuffer(*self.window.size)
 
         self.sq = SceneRenderScreenQuad(resources.get_shader_path("lit"))
         self.vol_sq = VolumetricLightScreenQuad(resources.get_shader_path("vol_light"))
@@ -134,7 +130,6 @@ class Engine:
         self.vol_composite_sq = VolumetricCompositeScreenQuad(
             resources.get_shader_path("vol_composite")
         )
-        self.post_sq = PostScreenQuad(resources.get_shader_path("postprocess"))
 
         self.profiler = Profiler()
         self.debug_depth_sq = None
@@ -143,7 +138,6 @@ class Engine:
         self.window.add_window_resize_listener(self.fb._on_window_size_changed)
         self.window.add_window_resize_listener(self.vol_fb._on_window_size_changed)
         self.window.add_window_resize_listener(self.vol_blur_fb._on_window_size_changed)
-        self.window.add_window_resize_listener(self.post_fb._on_window_size_changed)
 
     def construct_debug_depth_sq(self):
         self.debug_depth_sq = DebugDepthScreenQuad()
@@ -218,20 +212,20 @@ class Engine:
 
                 with self.profiler.pass_timer("Lighting", enabled=debug_complex):
                     glCullFace(GL_BACK)
-                    with self.post_fb:
-                        self.sq.bind_shader(light_space_matrices)
-                        self.sq.render(
-                            self.window.size[0],
-                            self.window.size[1],
-                            self.fb.position_tex,
-                            self.fb.normal_tex,
-                            self.fb.color_tex,
-                            self.fb.selection_tex,
-                            self.shadows_fb.shadow_array_tex,
-                            self.scene.camera.pos,
-                        )
-                    self.post_sq.bind_shader()
-                    self.post_sq.render(*self.window.size, self.post_fb.color_tex)
+                    # Straight into the window. This quad is opaque and covers
+                    # every pixel, so a separate target plus a copy pass was pure
+                    # overhead: one extra full-screen draw and 8 MiB of RGBA16F.
+                    self.sq.bind_shader(light_space_matrices)
+                    self.sq.render(
+                        self.window.size[0],
+                        self.window.size[1],
+                        self.fb.position_tex,
+                        self.fb.normal_tex,
+                        self.fb.color_tex,
+                        self.fb.selection_tex,
+                        self.shadows_fb.shadow_array_tex,
+                        self.scene.camera.pos,
+                    )
 
                 with self.profiler.pass_timer("Forward", enabled=debug_complex):
                     self.fb.unbind()  # Get the scene's depth buffer back
@@ -308,7 +302,6 @@ class Engine:
         self.fb.destroy()
         self.vol_fb.destroy()
         self.vol_blur_fb.destroy()
-        self.post_fb.destroy()
         self.shadows_fb.destroy()
         self.sq.destroy()
         self.vol_composite_sq.destroy()
