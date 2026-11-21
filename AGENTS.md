@@ -179,6 +179,7 @@ def tick(t: float, dt: float):
     # Called each frame before rendering
     pass
 
+
 engine._add_prerender_listener(tick)
 ```
 

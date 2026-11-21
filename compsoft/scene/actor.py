@@ -8,7 +8,11 @@ from pyglm import glm
 from pyglm.glm import mat4x4, vec3
 
 from compsoft.graphics.infrastructure.render_pass import RenderPass
-from compsoft.scene.components.component import Component, RenderableComponent
+from compsoft.scene.components.component import (
+    Component,
+    RenderableComponent,
+    ShadowCasterComponent,
+)
 
 if TYPE_CHECKING:
     from compsoft.scene.scene import Scene
@@ -213,6 +217,7 @@ class Actor:
                 r_comp.draw(aspect_ratio, self.get_world_matrix())
             elif (
                 render_pass == RenderPass.SHADOW
+                and isinstance(r_comp, ShadowCasterComponent)
                 and r_comp.RENDER_PASS == RenderPass.DEFERRED  # Dont render lights
                 and light_view_projection is not None
             ):
