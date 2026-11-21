@@ -182,7 +182,7 @@ identical in both captures).
 
 ---
 
-## 4. Clip the volumetric ray to each light's cone
+## 4. Clip the volumetric ray to each light's cone (Done)
 
 **Problem.** `vol_light/fragment.glsl` marches all 28 steps from the camera for every
 spot light, even when the ray never enters that light's cone. Roughly the intersection
@@ -200,6 +200,38 @@ count, so image quality goes **up** while cost goes down. Pairs naturally with i
 
 **Risk.** Low. Analytic cone math must match the shader's cutoff convention
 (`inner_cutoff` / `outer_cutoff` are cosines).
+
+**Landed.** `ConeInterval()` in `vol_light/fragment.glsl` returns the single
+`[tEnter, tExit]` where the camera ray is in front of the apex and inside the outer
+cone; the light is skipped outright when the ray misses. Because a cone is convex the
+answer is one interval, so the quadratic's roots are only used as *candidate*
+boundaries and the segments between them are tested at their midpoint — that handles
+rays parallel to, along, or through the axis without special cases. Validated by a
+numpy twin of the exact arithmetic against brute-force sampling: 3000 random
+configurations plus on-axis / tangent / antiparallel / 0.02–0.999 cosine edge cases,
+**3008/3008 pass**.
+
+The step count is **not** the same 28 redistributed: the shadow fetch is gated on
+`spotFactor > 0`, so with the old march most steps were cheap ALU and only the in-cone
+ones paid for a fetch. Concentrating 28 steps inside a short interval made the pass
+**2× slower** (0.39 → 0.83 ms) purely by running 3× more shadow fetches. The landed
+version keeps the old spacing (`rayLen / 28`) and marches `ceil(span / spacing)` steps,
+so the light contribution is the same integral, the loop is short when the interval is
+short, and a light whose cone the ray misses costs nothing at all.
+
+Measured (`BENCH_FRAMES=300`, two runs each, animated scene, 1920×992):
+
+| Pass          | Before (min/avg/p95) | After (min/avg/p95) |
+| ------------- | -------------------- | ------------------- |
+| VOL LIGHTNING | 0.38 / 0.39 / 0.41   | 0.08 / 0.09 / 0.11  |
+| VOL COMPOSITE | 0.13 / 0.13 / 0.13   | 0.13 / 0.13 / 0.16  |
+| loop          | 3.86 ms (259 fps)    | 3.50 ms (285 fps)   |
+
+4.3× on the volumetric pass, ~9% off the frame. At 1280×720 the pass goes 0.28 → 0.16.
+
+Frozen-frame diff (both runs bit-identical first): max 9/255, mean 0.64, 2 px above 8,
+nothing darker by more than 2 levels — the residual is the dither phase moving with the
+interval start, not lost or doubled light.
 
 ---
 

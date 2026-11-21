@@ -38,6 +38,73 @@ float HenyeyGreenstein(float cosTheta, float g) {
   return (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
 }
 
+// Interval of the camera ray that lies inside a spot light's outer cone: in
+// front of the apex and within the half-angle whose cosine is `cosOuter`.
+//
+// A cone is convex, so the answer is a single interval. The quadratic's roots
+// only split the candidate range into segments; each segment's midpoint is
+// tested against the cone directly. That avoids special-casing rays that run
+// parallel to (or straight along) the axis, where the quadratic degenerates.
+//
+// Returns (start, end), with start > end when the ray misses the cone.
+vec2 ConeInterval(vec3 origin, vec3 dir, vec3 apex, vec3 axis, float cosOuter,
+                  float maxT) {
+  float c2 = cosOuter * cosOuter;
+  vec3 w = origin - apex;
+  float m = dot(w, axis);
+  float n = dot(dir, axis);
+  float e = dot(w, dir);
+
+  // In front of the apex: m + n*t >= 0.
+  float start = 0.0;
+  float end = maxT;
+  if (abs(n) < 1e-6) {
+    if (m < 0.0)
+      return vec2(1.0, 0.0);
+  } else if (n > 0.0) {
+    start = max(start, -m / n);
+  } else {
+    end = min(end, -m / n);
+  }
+  if (end <= start)
+    return vec2(1.0, 0.0);
+
+  // Inside the double cone: A*t^2 + B*t + C >= 0.
+  float A = n * n - c2;
+  float B = 2.0 * (m * n - c2 * e);
+  float C = m * m - c2 * dot(w, w);
+
+  float r0 = start;
+  float r1 = start;
+  if (abs(A) > 1e-6) {
+    float disc = B * B - 4.0 * A * C;
+    if (disc > 0.0) {
+      float sq = sqrt(disc);
+      r0 = (-B - sq) / (2.0 * A);
+      r1 = (-B + sq) / (2.0 * A);
+    }
+  } else if (abs(B) > 1e-6) {
+    r0 = -C / B;
+    r1 = r0;
+  }
+
+  float rootMin = clamp(min(r0, r1), start, end);
+  float rootMax = clamp(max(r0, r1), start, end);
+  float bounds[4] = float[](start, rootMin, rootMax, end);
+
+  for (int i = 0; i < 3; ++i) {
+    float lo = bounds[i];
+    float hi = bounds[i + 1];
+    if (hi - lo <= 1e-5)
+      continue;
+    vec3 v = w + dir * (0.5 * (lo + hi));
+    float axisDist = dot(v, axis);
+    if (axisDist >= 0.0 && axisDist * axisDist >= c2 * dot(v, v))
+      return vec2(lo, hi);
+  }
+  return vec2(1.0, 0.0);
+}
+
 vec3 GetRayDir(vec2 texCoords, mat4 invViewProj, vec3 cameraPos) {
   vec4 ndc = vec4(texCoords * 2.0 - 1.0, 1.0, 1.0); // [0-1] to [-1, 1]
   vec4 worldPos = invViewProj * ndc;
@@ -62,8 +129,6 @@ void main() {
     rayLen = MAX_FOG_DIST;
   }
 
-  float stepSize = rayLen / float(NUM_STEPS);
-
   float dither = fract(
       52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
@@ -75,17 +140,37 @@ void main() {
 
     float distToLight = length(uLights[i].position - rayOrigin);
     if (distToLight > MAX_FOG_DIST + 20.0) {
-        continue;  // too far
+      continue;  // too far
     }
 
-    vec3 currentPos = rayOrigin + rayDir * (dither * stepSize);
+    vec3 lightDir = normalize(uLights[i].direction);
+    // March only the part of the ray that is inside the cone: spotFactor is 0
+    // everywhere else, so this drops no light and spends the same 28 steps where
+    // the fog actually is.
+    vec2 interval =
+        ConeInterval(rayOrigin, rayDir, uLights[i].position, lightDir,
+                     clamp(uLights[i].outer_cutoff, 0.001, 0.999), rayLen);
+    if (interval.x > interval.y) {
+      continue;  // the ray never enters this light's cone
+    }
+
+    // Keep the old step spacing (the whole ray used NUM_STEPS of them) and spend
+    // the steps only inside the cone: a short interval marches a short loop
+    // rather than 28 mostly-empty ones. Spacing - and therefore the integrated
+    // result - matches the unclipped march, but the shadow fetch now only runs
+    // where it can contribute.
+    float maxStepLength = rayLen / float(NUM_STEPS);
+    float span = interval.y - interval.x;
+    int stepCount = int(clamp(ceil(span / maxStepLength), 1.0, float(NUM_STEPS)));
+    float stepLength = span / float(stepCount);
+    vec3 currentPos = rayOrigin + rayDir * (interval.x + dither * stepLength);
     vec3 accumulatedFog = vec3(0.0);
-    for (int j = 0; j < NUM_STEPS; j++) {
+    for (int j = 0; j < stepCount; j++) {
       vec3 lightToSample = currentPos - uLights[i].position;
       float dist = max(length(lightToSample), 0.001);
       vec3 dirFromLight = lightToSample / dist;
 
-      float cosAngle = dot(dirFromLight, normalize(uLights[i].direction));
+      float cosAngle = dot(dirFromLight, lightDir);
       float spotFactor =
           clamp((cosAngle - uLights[i].outer_cutoff) /
                     (uLights[i].inner_cutoff - uLights[i].outer_cutoff),
@@ -122,10 +207,10 @@ void main() {
         }
       }
 
-      currentPos += rayDir * stepSize;
+      currentPos += rayDir * stepLength;
     }
 
-    finalColor += accumulatedFog * stepSize;
+    finalColor += accumulatedFog * stepLength;
   }
 
   finalColor = finalColor / (finalColor + vec3(1.0)); // Reinhard
