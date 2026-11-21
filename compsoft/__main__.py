@@ -75,6 +75,7 @@ def main():
     actor.add_component(DirectionalLight(vec3(0, -1, 0), intensity=1))
     cube.load()
     cube.scale = vec3(100, 1, 100)
+    cube.cast_shadow = False
 
     suzanne = scene.add_actor(Actor())
     suzanne.position = vec3(5, 10, 5)

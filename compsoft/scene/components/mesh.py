@@ -38,10 +38,12 @@ from compsoft.graphics.ray_trace import (
     ray_tri_intersect,
 )
 from compsoft.graphics.vbo_indexer import index_vbo
-from compsoft.scene.components.component import RenderableComponent
+from compsoft.scene.components.component import (
+    ShadowCasterComponent,
+)
 
 
-class SimpleMeshComponent(RenderableComponent):
+class SimpleMeshComponent(ShadowCasterComponent):
     # Format as veritcal
     # fmt: off
     DIRTY_NONE     = 0b00000

@@ -28,7 +28,9 @@ from compsoft.graphics.ray_trace import (
 )
 from compsoft.scene.actor import Actor
 from compsoft.scene.camera import Camera
-from compsoft.scene.components.component import RenderableComponent
+from compsoft.scene.components.component import (
+    ShadowCasterComponent,
+)
 from compsoft.scene.components.light import LightComponent, LightData
 from compsoft.scene.components.mesh import SimpleMeshComponent
 from compsoft.scene.gizmos.axes import Axis
@@ -48,7 +50,7 @@ class Scene:
         self.root_actors: list[Actor] = []
         self.registry: dict[uuid.UUID, Actor] = {}
         self.active_lights: list[LightComponent] = []
-        self.shadow_casters: list[RenderableComponent] = []
+        self.shadow_casters: list[ShadowCasterComponent] = []
         self.lights_ubo_id = -1
 
         self.debug = Debug()
@@ -258,9 +260,17 @@ class Scene:
             glClear(GL_DEPTH_BUFFER_BIT)
             self.translation_gizmo.render(aspect_ratio, render_pass)
 
+    def get_shadow_caster_boxes(self) -> tuple[tuple[vec3, vec3], ...]:
+        boxes = (
+            c.get_transformed_bounding_box()
+            for c in self.shadow_casters
+            if c.casts_shadows
+        )
+        return tuple(b for b in boxes if b is not None)
+
     def render_shadow_map(self, light_view_projection: mat4):
         for caster in self.shadow_casters:
-            if caster.parent:
+            if caster.casts_shadows and caster.parent:
                 caster.draw_depth(
                     light_view_projection, caster.parent.get_world_matrix()
                 )
